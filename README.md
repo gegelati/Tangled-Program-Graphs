@@ -1,1 +1,1 @@
-Tangled Program Graphs (TPG) - A genetic programming framework with emphasis on emergent modularity.
+This code distribution is in active development and intended for research purposes only. For more information contact stephen.kelly@dal.ca
