@@ -1,8 +1,4 @@
-This c++ code distribution is in active development and intended for research purposes only. 
-
-For more information contact stephen.kelly@dal.ca
-
-The following provides a quick start for Linux. See code and scripts for further documentation. 
+This c++ code distribution is in active development and intended for research purposes only. For more information contact stephen.kelly@dal.ca. The following provides a quick start for Linux. See code and scripts for further documentation. 
 
 DEPENDENCIES (outside what is like already installed)
 
