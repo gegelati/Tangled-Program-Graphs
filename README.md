@@ -10,21 +10,21 @@ SETTING UP THE ENVIRONEMNT
 
 Navigate to the base folder for this distrobution and type:
 
-$ export TPGPATH=$(pwd)
+export TPGPATH=$(pwd)
 
 COMPILING
 
-$ cd $TPGPATH
-$ scons --opt
+cd $TPGPATH
+scons --opt
 
 RUNNING A SINGLE-TASK EXPERIMENT
 
-$ cd runALE
-$ ./tpg-runner.sh ms_pacman 7
+cd runALE
+./tpg-runner.sh ms_pacman 7
 
 
 RUNNING A MULTI-TASK EXPERIMENT
 
-$ cd runALEMTRL
+cd runALEMTRL
 
-$ ./tpg-runner.sh roms-3-02.txt 7
+./tpg-runner.sh roms-3-02.txt 7
