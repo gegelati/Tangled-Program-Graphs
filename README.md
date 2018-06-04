@@ -13,18 +13,15 @@ Navigate to the base folder for this distrobution and type:
 COMPILING
 
     cd $TPGPATH
-
     scons --opt
 
 RUNNING A SINGLE-TASK EXPERIMENT
 
     cd runALE
-
     ./tpg-runner.sh ms_pacman 7
 
 
 RUNNING A MULTI-TASK EXPERIMENT
 
     cd runALEMTRL
-
     ./tpg-runner.sh roms-3-02.txt 7
