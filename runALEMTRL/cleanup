@@ -1,0 +1,11 @@
+#!/bin/bash
+if ls *.err 1> /dev/null 2>&1; then rm *.err; fi
+if ls *.arg 1> /dev/null 2>&1; then rm *.arg; fi
+if ls *.std 1> /dev/null 2>&1; then rm *.std; fi
+if ls *.rslt 1> /dev/null 2>&1; then rm *.rslt; fi
+if ls *.pdf 1> /dev/null 2>&1; then rm *.pdf; fi
+if ls checkpoints/* 1> /dev/null 2>&1; then rm checkpoints/*; fi
+if ls hostGraphs/* 1> /dev/null 2>&1; then rm hostGraphs/*; fi
+if ls GE_Logs_err/* 1> /dev/null 2>&1; then rm GE_Logs_err/*; fi
+if ls GE_Logs_std/* 1> /dev/null 2>&1; then rm GE_Logs_std/*; fi
+if ls *Frame.* 1> /dev/null 2>&1; then rm *Frame.*; fi

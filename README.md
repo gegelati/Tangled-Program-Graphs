@@ -1,16 +1,27 @@
-This code distribution is in active development and intended for research purposes only. For more information contact stephen.kelly@dal.ca
+This c++ code distribution is in active development and intended for research purposes only. 
+For more information contact stephen.kelly@dal.ca
 
+The following provides a quick start for Linux. See code and scripts for further documentation. 
 
-DEPENDENCIES
+DEPENDENCIES (outside what is like already installed)
 
 scons
 g++
 libbz2-dev
 
-sudo apt-get -y install scons g++ libbz2-dev 
+SETTING UP THE ENVIRONEMNT
 
-#ALE
-sudo apt-get install libsdl1.2-dev libsdl-gfx1.2-dev libsdl-image1.2-dev cmake
-$ mkdir build && cd build
-$ cmake -DUSE_SDL=ON -DUSE_RLGLUE=OFF -DBUILD_EXAMPLES=ON ..
-$ make -j 4
+Navigate to the base folder for this distrobution and type:
+
+export TPGPATH=$(pwd)
+
+COMPILING
+
+cd $TPGPATH
+scons --opt
+
+RUNNING AN EXPERIMENT
+
+cd runALE
+./tpg-runner.sh ms_pacman 7
+

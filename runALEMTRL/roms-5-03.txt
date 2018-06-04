@@ -1,0 +1,5 @@
+krull.bin:3805:1598
+kung_fu_master.bin:23270:258.5
+ms_pacman.bin:2311:307.3
+private_eye.bin:1788:24.9
+time_pilot.bin:5947:3568
