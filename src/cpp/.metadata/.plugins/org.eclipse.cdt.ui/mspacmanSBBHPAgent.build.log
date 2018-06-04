@@ -1,0 +1,21 @@
+15:21:32 **** Incremental Build of configuration Debug for project mspacmanSBBHPAgent ****
+make all 
+Building file: ../mspacmanSBBHPAgent.cc
+Invoking: GCC C++ Compiler
+g++ -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"mspacmanSBBHPAgent.d" -MT"mspacmanSBBHPAgent.o" -o "mspacmanSBBHPAgent.o" "../mspacmanSBBHPAgent.cc"
+In file included from /usr/include/c++/4.8/atomic:38:0,
+                 from ../mspacmanSBBHPAgent.cc:3:
+/usr/include/c++/4.8/bits/c++0x_warning.h:32:2: error: #error This file requires compiler and library support for the ISO C++ 2011 standard. This support is currently experimental, and must be enabled with the -std=c++11 or -std=gnu++11 compiler options.
+ #error This file requires compiler and library support for the \
+  ^
+In file included from ../../sbbH/sbbPoint.h:8:0,
+                 from ../../sbbH/sbbH.h:3,
+                 from ../mspacmanSBBHPAgent.cc:9:
+../../sbbH/sbbMisc.h:22:28: fatal error: soccer_defines.h: No such file or directory
+ #include "soccer_defines.h"
+                            ^
+compilation terminated.
+make: *** [mspacmanSBBHPAgent.o] Error 1
+
+15:21:32 Build Finished (took 552ms)
+

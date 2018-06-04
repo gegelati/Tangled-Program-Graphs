@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<qualifiedTypeNameHistroy>
+<fullyQualifiedTypeName name="java.text.DecimalFormatSymbols"/>
+<fullyQualifiedTypeName name="java.lang.System"/>
+<fullyQualifiedTypeName name="java.net.InetAddress"/>
+<fullyQualifiedTypeName name="game.controllers.ghosts.examples.RandomGhosts"/>
+<fullyQualifiedTypeName name="game.core.Game"/>
+<fullyQualifiedTypeName name="game.core.G"/>
+<fullyQualifiedTypeName name="pacman.controllers.examples.RandomPacMan"/>
+<fullyQualifiedTypeName name="pacman.controllers.examples.RandomGhosts"/>
+<fullyQualifiedTypeName name="pacman.game.Game"/>
+<fullyQualifiedTypeName name="pacman.game.Constants"/>
+<fullyQualifiedTypeName name="edu.utexas.cs.nn.util.datastructures.Pair"/>
+<fullyQualifiedTypeName name="edu.utexas.cs.nn.tasks.mspacman.sensors.directional.reachfirst.VariableDirectionCloserToTargetThanThreatGhostBlock"/>
+<fullyQualifiedTypeName name="edu.utexas.cs.nn.util.datastructures.ArrayUtil"/>
+<fullyQualifiedTypeName name="pacman.controllers.examples.NearestPillPacMan"/>
+<fullyQualifiedTypeName name="edu.utexas.cs.nn.tasks.mspacman.sensors.directional.VariableDirectionCountJunctionOptionsBlock"/>
+<fullyQualifiedTypeName name="pacman.game.GameView"/>
+<fullyQualifiedTypeName name="game.controllers.pacman.examples.NearestPillPacMan"/>
+<fullyQualifiedTypeName name="game.controllers.ghosts.examples.AttractRepelGhosts"/>
+<fullyQualifiedTypeName name="edu.utexas.cs.nn.tasks.mspacman.sensors.mediators.IICheckEachDirectionMediator"/>
+<fullyQualifiedTypeName name="pacman.controllers.examples.DeterministicLegacy"/>
+<fullyQualifiedTypeName name="game.controllers.ghosts.examples.Legacy"/>
+<fullyQualifiedTypeName name="edu.utexas.cs.nn.tasks.mspacman.facades.GameFacade"/>
+<fullyQualifiedTypeName name="java.util.Arrays"/>
+<fullyQualifiedTypeName name="pacman.controllers.examples.PansyGhosts"/>
+</qualifiedTypeNameHistroy>

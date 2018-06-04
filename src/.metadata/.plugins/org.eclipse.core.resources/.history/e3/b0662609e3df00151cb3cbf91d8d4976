@@ -1,0 +1,22 @@
+package pacman.controllers.osc;
+
+public class GhostSensorReading implements Comparable<GhostSensorReading>{
+	public Double distance;
+	public Double ghostApproaching;
+	public Double pathToGhostContainsJunction;
+	public Double ghostEdible;
+	public Integer id;
+	
+	public GhostSensorReading(double d, double ga, double p, double ge, int i){
+		distance = d;
+		ghostApproaching = ga;
+		pathToGhostContainsJunction = p;
+		ghostEdible = ge;
+		id = i;
+	}
+	
+	public int compareTo(GhostSensorReading other)
+	  {
+	    return distance.compareTo(other.distance);
+	  }
+}

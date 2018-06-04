@@ -1,0 +1,8 @@
+Import('env')
+import os
+env['TPGPATH'] = os.environ.get('TPGPATH','default')
+env.Append(CPPPATH=['../aleScreen','../TPG','/usr/include/SDL/',"$TPGPATH/ale_0.5.1/src/"])
+env.Append(LIBS = ['TPG','bz2','libale'])
+env.Append(LIBPATH=['../aleScreen','../TPG',"$TPGPATH/ale_0.5.1",'/usr/lib/x86_64-linux-gnu'])
+env.Program('tpgALEMTRL', ['tpgALEMTRL.cc'])
+

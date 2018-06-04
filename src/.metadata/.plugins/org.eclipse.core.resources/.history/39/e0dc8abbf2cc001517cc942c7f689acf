@@ -1,0 +1,211 @@
+import processing.core.*;
+import java.util.ArrayList;
+import processing.event.MouseEvent;
+
+public class NeuromimeNetwork extends PApplet {
+
+	// Stuff for zooming and panning.
+	float scaleFactor = 1.0f;
+	float translateX = 0.0f;
+	float translateY = 0.0f;
+	float mouseXSample;
+	float mouseYSample;
+	
+	boolean freeze = false;
+	
+	boolean help = true;
+	String helpString = "help me please!";
+
+	// Used to toggle Neurons between "scope" and "blink" modes.
+	boolean scope = true;
+
+	// List of all Neurons
+	ArrayList<Neuron> neurons = new ArrayList<Neuron>();
+
+	// Single Neuron with an output selected.
+	Neuron selectedOutputNeuron;
+	// Specific output port of selectedOutputNeuron
+	int outputPort;
+
+	public void settings() {
+		fullScreen();
+	}
+
+	public void setup() {
+		background(0);
+		neurons.add(new Neuron(this, width * 0.5f, height * 0.5f));
+	}
+
+	public void draw() {
+		// Update all neurons fo current timestep.
+		if (!freeze){
+		for (int i = 0; i < neurons.size(); i++)
+			neurons.get(i).step();
+		}
+		// Draw all neurons and connections.
+		background(30);
+		pushMatrix();
+		translate(translateX, translateY);
+		scale(scaleFactor);
+		for (int i = 0; i < neurons.size(); i++)
+			neurons.get(i).drawNeuron();
+		popMatrix();
+		
+		if (help)			
+			  text(helpString,10f,height*0.5f);
+	}
+
+	/************************************************************************************************/
+	public void mouseWheel(MouseEvent event) {
+		for (int i = 0; i < neurons.size(); i++) {
+			if (neurons.get(i).thresholdSelected()
+					&& mouseOverNeuronDial(neurons.get(i))) {
+				if (neurons.get(i).signalNeuron())
+					neurons.get(i).freq(
+							neurons.get(i).freq() - event.getCount()
+									* neurons.get(i).freqInc());
+				else
+					neurons.get(i).theta(
+							neurons.get(i).theta() - event.getCount()
+									* neurons.get(i).thetaInc());
+				return;
+			}
+		}
+
+		translateX -= mouseX;
+		translateY -= mouseY;
+		float delta = event.getCount() < 0 ? 1.05f
+				: event.getCount() > 0 ? 1.0f / 1.05f : 1.0f;
+		scaleFactor *= delta;
+		translateX *= delta;
+		translateY *= delta;
+		translateX += mouseX;
+		translateY += mouseY;
+	}
+
+	/************************************************************************************************/
+	public void keyPressed() {
+		if (key == 'd') {
+			for (int i = 0; i < neurons.size(); i++)
+				if (mouseOverNeuron(neurons.get(i)))
+					neurons.remove(i);
+			}
+		if (key == 'h') {
+		help = !help;
+		}
+		
+		if (key == 'n') {
+			neurons.add(new Neuron(this, getMouseX(), getMouseY()));
+		} else if (key == 'r') {
+			scaleFactor = 1;
+			translateX = 0.0f;
+			translateY = 0.0f;
+		} else if (key == 's') {
+			for (int i = 0; i < neurons.size(); i++)
+				if (mouseOverNeuron(neurons.get(i)))
+					neurons.get(i).signalNeuron(!neurons.get(i).signalNeuron());
+		} else if (key == 'v'){
+			for (int i = 0; i < neurons.size(); i++)
+				neurons.get(i).scope(!neurons.get(i).scope());
+		}
+		else if (key == 'p'){
+			freeze=!freeze;	
+		}
+			
+	}
+
+	/************************************************************************************************/
+	public void mousePressed() {
+		for (int i = 0; i < neurons.size(); i++) {
+			if (mouseOverNeuron(neurons.get(i))) {
+				mouseXSample = getMouseX() - neurons.get(i).xPos();
+				mouseYSample = getMouseY() - neurons.get(i).yPos();
+			}
+		}
+	}
+
+	/************************************************************************************************/
+	public void mouseDragged() {
+		// check if drag began over a neuron
+		for (int i = 0; i < neurons.size(); i++) {
+			if (mouseOverNeuron(neurons.get(i)) && neurons.get(i).isSelected()) {
+				neurons.get(i).xPos(getMouseX() - mouseXSample);
+				neurons.get(i).yPos(getMouseY() - mouseYSample);
+				return;
+			}
+		}
+		translateX += mouseX - pmouseX;
+		translateY += mouseY - pmouseY;
+	}
+
+	/************************************************************************************************/
+	public void mouseClicked() {
+		boolean change = false;
+		if (mouseButton == LEFT) {
+			for (int i = 0; i < neurons.size(); i++) {
+				if (mouseOverNeuronDial(neurons.get(i))) {
+					neurons.get(i).selectThreshold(
+							!neurons.get(i).thresholdSelected());
+					if (neurons.get(i).thresholdSelected())
+						neurons.get(i).selectNeuron(false);
+					change = true;
+				} else if (mouseOverNeuron(neurons.get(i))) {
+					neurons.get(i).selectNeuron(!neurons.get(i).isSelected());
+					if (neurons.get(i).isSelected())
+						neurons.get(i).selectThreshold(false);
+					change = true;
+				} else
+					neurons.get(i).selectNeuron(false);
+				// connect or disconnect input
+				neurons.get(i).selectIn(selectedOutputNeuron, getMouseX(),
+						getMouseY());
+				// select or de-select output
+				if (neurons.get(i).selectOut(getMouseX(), getMouseY())) {
+					selectedOutputNeuron = neurons.get(i);
+					change = true;
+				}
+			}
+			if (!change) {
+				for (int i = 0; i < neurons.size(); i++) {
+					neurons.get(i).selectThreshold(false);
+					neurons.get(i).clearSelectedOutputs();
+				}
+			}
+		}
+	}
+
+	/************************************************************************************************/
+	boolean mouseOverNeuron(Neuron n) {
+		float x = n.xPos();
+		float y = n.yPos();
+		float r = n.radius();
+		if (sqrt(pow((getMouseX()) - x, 2) + pow((getMouseY()) - y, 2)) <= r)
+			return true;
+		return false;
+	}
+
+	/************************************************************************************************/
+	boolean mouseOverNeuronDial(Neuron n) {
+		float x = n.xPos();
+		float y = n.yPos() + (n.radius() / 2);
+		float r = n.dialRadius();
+		if (sqrt(pow((getMouseX()) - x, 2) + pow((getMouseY()) - y, 2)) <= r)
+			return true;
+		return false;
+	}
+
+	/************************************************************************************************/
+	public float getMouseX() {
+		return (mouseX - translateX) / scaleFactor;
+	}
+
+	/************************************************************************************************/
+	public float getMouseY() {
+		return (mouseY - translateY) / scaleFactor;
+	}
+
+	/************************************************************************************************/
+	public static void main(String args[]) {
+		PApplet.main(new String[] { "--present", "NeuromimeNetwork" });
+	}
+}

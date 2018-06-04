@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename resource &apos;mspacmanSBBHPAgent/mspacmanSBBHAgent.cc&apos; to &apos;mspacmanSBBHPAgent.cc&apos;" description="Rename resource &apos;mspacmanSBBHAgent.cc&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="mspacmanSBBHAgent.cc" name="mspacmanSBBHPAgent.cc" stamp="1459099098236" updateReferences="true"/>
+</session>

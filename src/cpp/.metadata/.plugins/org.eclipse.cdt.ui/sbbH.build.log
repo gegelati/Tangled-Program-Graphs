@@ -1,0 +1,16 @@
+20:02:10 **** Incremental Build of configuration Debug for project sbbH ****
+make all 
+Building file: ../sbbH.cc
+Invoking: Cross G++ Compiler
+g++ -O0 -g3 -Wall -c -fmessage-length=0 -MMD -MP -MF"sbbH.d" -MT"sbbH.o" -o "sbbH.o" "../sbbH.cc"
+In file included from ../sbbPoint.h:8:0,
+                 from ../sbbH.h:3,
+                 from ../sbbH.cc:10:
+../sbbMisc.h:22:28: fatal error: soccer_defines.h: No such file or directory
+ #include "soccer_defines.h"
+                            ^
+compilation terminated.
+make: *** [sbbH.o] Error 1
+
+20:02:11 Build Finished (took 478ms)
+

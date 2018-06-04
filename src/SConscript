@@ -1,0 +1,4 @@
+Import('env')
+
+for subdir in ['cpp/TPG','cpp/tpgALE','cpp/tpgALEMTRL','cpp/aleScreen']:
+  env.SConscript('%s/SConscript' % subdir, {'env': env})

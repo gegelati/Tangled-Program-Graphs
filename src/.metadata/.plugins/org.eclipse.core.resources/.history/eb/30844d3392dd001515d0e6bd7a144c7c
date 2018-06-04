@@ -1,0 +1,313 @@
+package pacman;
+
+import edu.utexas.cs.nn.log.DeathLocationsLog;
+import edu.utexas.cs.nn.log.MONELog;
+import edu.utexas.cs.nn.parameters.CommonConstants;
+import edu.utexas.cs.nn.parameters.Parameters;
+import edu.utexas.cs.nn.tasks.mspacman.agentcontroller.pacman.StaticPacManController;
+import edu.utexas.cs.nn.tasks.mspacman.data.ScentPath;
+import edu.utexas.cs.nn.tasks.mspacman.facades.GameFacade;
+import edu.utexas.cs.nn.util.CombinatoricUtilities;
+import edu.utexas.cs.nn.util.MiscUtil;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.Random;
+import java.util.Scanner;
+import pacman.controllers.Controller;
+import pacman.controllers.HumanController;
+import pacman.controllers.examples.Legacy;
+import pacman.controllers.examples.NearestPillPacMan;
+import pacman.controllers.examples.PansyGhosts;
+import pacman.controllers.examples.RandomGhosts;
+import pacman.controllers.examples.RandomPacMan;
+import pacman.controllers.examples.StarterGhosts;
+import static pacman.game.Constants.DELAY;
+import pacman.game.Constants.GHOST;
+import static pacman.game.Constants.INTERVAL_WAIT;
+import pacman.game.Constants.MOVE;
+import pacman.game.Game;
+import pacman.game.GameView;
+import com.illposed.osc.*;
+import dal.experiment.RunSocketServer;
+import dal.experiment.RunTrainedNetworks;
+import edu.utexas.cs.nn.tasks.mspacman.agentcontroller.pacman.NNMsPacMan;
+import edu.utexas.cs.nn.tasks.mspacman.facades.PacManControllerFacade;
+import edu.utexas.cs.nn.tasks.mspacman.sensors.BlockLoadedInputOutputMediator;
+import edu.utexas.cs.nn.util.random.RandomNumbers;
+import java.util.Date;
+import java.net.InetAddress;
+import pacman.controllers.NewPacManController;
+import edu.utexas.cs.nn.tasks.mspacman.agentcontroller.pacman.NNCheckEachDirectionPacManController;
+import edu.utexas.cs.nn.tasks.mspacman.sensors.VariableDirectionBlockLoadedInputOutputMediator;
+import edu.utexas.cs.nn.tasks.mspacman.sensors.directional.VariableDirectionBlock;
+import edu.utexas.cs.nn.tasks.mspacman.sensors.MsPacManControllerInputOutputMediator;
+
+/**
+ * This class may be used to execute the game in timed or un-timed modes, with
+ * or without visuals. Competitors should implement their controllers in
+ * game.entries.ghosts and game.entries.pacman respectively. The skeleton
+ * classes are already provided. The package structure should not be changed
+ * (although you may create sub-packages in these packages).
+ */
+@SuppressWarnings("unused")
+public class Executor {
+
+    public static boolean logOutput;
+    public static MONELog watch;
+    public static MONELog noWatch;
+    public static DeathLocationsLog deaths = null;
+    
+    //SBB Socket Stuff
+    public static boolean hold = false;
+    long nextGameSeed;
+    int timestep;
+    MOVE nextMove;
+    boolean sleep;
+    boolean visual;
+    boolean show_moves;
+    boolean newGame;
+    boolean moveReady;
+    boolean useRandomSeed;
+    OSCPortIn serverPort;
+    long timeStart;
+
+    public Executor() {
+//        hold = Parameters.parameters.booleanParameter("stepByStepPacMan");
+//        logOutput = Parameters.parameters.booleanParameter("logPacManEvals");
+//        String saveTo = Parameters.parameters.stringParameter("saveTo");
+//        if (!saveTo.isEmpty() && Parameters.parameters.booleanParameter("logDeathLocations")) {
+//            deaths = new DeathLocationsLog();
+//        }
+//        if (!saveTo.isEmpty() && logOutput && watch == null && noWatch == null) {
+//            watch = new MONELog("EvalPacMan-WatchScores");
+//            noWatch = new MONELog("EvalPacMan-NoWatchScores");
+//        }
+    }
+
+    public void log(String name) {
+        if (logOutput) {
+            watch.log(name);
+            noWatch.log(name);
+        }
+    }
+
+    public static void close() {
+        if (logOutput) {
+            watch.close();
+            noWatch.close();
+        }
+        if (deaths != null) {
+            deaths.close();
+        }
+    }
+
+    public MsPacManControllerInputOutputMediator inputMediator;
+    /**
+     * The main method. Several options are listed - simply remove comments to
+     * use the option you want.
+     *
+     * @param args the command line arguments
+     */
+    public static void main(String[] args) {
+        Parameters.initializeParameterCollections(args);
+        
+        //DirectionalPathCache.init();
+        Executor exec = new Executor();
+          
+          exec.runExperiment_Socket2(7002, new NearestPillPacMan(), new StarterGhosts());
+    }
+    
+    public void runExperiment_Socket2(int port, Controller<MOVE> pacManController, Controller<EnumMap<GHOST, MOVE>> ghostController) {
+    	
+    	Random rnd = new Random(0);
+        Game game;
+    	
+    	sleep = false;
+        visual = false;
+        show_moves = false;
+        useRandomSeed = true;
+        nextGameSeed = 0;
+        
+        Sensors sensors = new Sensors();
+        
+        try {
+            int game_server_port = Parameters.parameters.integerParameter("randomSeed");
+            InetAddress agent_IP = InetAddress.getLocalHost();
+            int agent_port = game_server_port + 1;
+            moveReady = false; newGame = false; 
+
+            //Set up sockets
+            OSCPortOut outgoingPort = new OSCPortOut(agent_IP, agent_port);
+            serverPort = new OSCPortIn(game_server_port);
+            
+            //Set up listener - START
+            OSCListener start = new OSCListener() {
+                public void acceptMessage(Date time, OSCMessage message) {
+                    useRandomSeed = true;
+                    newGame = true;
+                    moveReady = true; 
+                }
+            }; serverPort.addListener("start", start);
+            
+            //Set up listener - ACT
+            OSCListener act = new OSCListener(){
+                public void acceptMessage(Date time, OSCMessage message) {
+                    switch ((Integer)message.getArguments()[0]) {
+                            case 0: nextMove = MOVE.UP; break;
+                            case 1: nextMove = MOVE.RIGHT; break;
+                            case 2: nextMove = MOVE.DOWN; break;
+                            case 3: nextMove = MOVE.LEFT; break;
+                            default: nextMove = MOVE.NEUTRAL; 
+                            System.out.println("ERROR: Invalid MOVE: " + (Integer)message.getArguments()[0]);
+                    }
+                    timestep = (Integer)message.getArguments()[1];
+                    moveReady = true; 
+                }
+            }; serverPort.addListener("act", act);
+            
+            //Set up listener - EXIT
+            OSCListener exit = new OSCListener(){
+                public void acceptMessage(Date time, OSCMessage message) {
+                    System.out.println("END");
+                    serverPort.stopListening();
+                    serverPort.close();
+                    try {Thread.sleep(500);}catch(Exception e){}
+                    System.exit(0);
+                }
+            }; serverPort.addListener("exit", exit);
+            
+            //Set up listener - STARTWITHSEED
+            OSCListener startwithseed = new OSCListener() {
+                public void acceptMessage(Date time, OSCMessage message) {
+                    nextGameSeed = Long.parseLong((String)message.getArguments()[0]);
+                    useRandomSeed = false;
+                    newGame = true;
+                    moveReady = true; 
+                }
+            }; serverPort.addListener("startwithseed", startwithseed);
+            
+            //Set up listener - SHOWMOVES
+            OSCListener setshowmoves = new OSCListener() {
+                public void acceptMessage(Date time, OSCMessage message) {
+                    show_moves = true;
+                }
+            }; serverPort.addListener("showmoves", setshowmoves);
+            
+            //Set up listener - VISUAL
+            OSCListener setvisual = new OSCListener(){
+                public void acceptMessage(Date time, OSCMessage message) {
+                    visual = true;
+                }
+            }; serverPort.addListener("visual", setvisual);
+            
+            //Set up listener - SLEEP
+            OSCListener setsleep = new OSCListener() {
+                public void acceptMessage(Date time, OSCMessage message) {
+                    sleep = true;
+                }
+            }; serverPort.addListener("sleep", setsleep);
+            
+            
+            //Set up listener - WAKE
+            OSCListener setwake = new OSCListener() {
+                public void acceptMessage(Date time, OSCMessage message) {
+                    sleep = false;
+                }
+            }; serverPort.addListener("wake", setwake);           
+            
+            //Wait for initial start command
+            serverPort.startListening();
+            System.out.println("Server Port: " + game_server_port);
+            System.out.println("Waiting...");
+            while (newGame == false || moveReady == false) {System.out.print("");}
+            moveReady = false; newGame = false; timestep = 0;
+            
+            //Create new game
+            game = new Game(rnd.nextLong());
+            //pacManController.threadRevive();
+            System.out.println("Started!");
+            GameView gv = null;if (visual) {gv = new GameView(game).showGame();}
+            
+            //Play game.........................................................
+            while (true) {   
+                OSCMessage msg = new OSCMessage("state");
+              
+                //Update NN inputs based on game state
+                if ( null == pacManController.getMove(game.copy(), -1) && game.getMoveNum() > 10) {
+                    //null is a special end game code
+                    game.advanceGame(null, ghostController.getMove(game.copy(), -1));
+                }
+                
+                //Save time_step, episode_end, reward, pills eaten, X-Y coordinates
+                //msg.addArgument((float)timestep);
+                msg.addArgument((float)((game.gameOver())?1:0));
+                msg.addArgument((float)game.getScore());
+                msg.addArgument((float)game.getEatenPills());
+                msg.addArgument((float)game.getEatenGhosts());
+                msg.addArgument((float)game.getNodeXCood(game.getPacmanCurrentNodeIndex()));
+                msg.addArgument((float)game.getNodeYCood(game.getPacmanCurrentNodeIndex()));
+                
+                GameFacade gs = new GameFacade(game);
+              
+                int[] neighbours = gs.neighbors(gs.getPacmanCurrentNodeIndex());
+                for (int i = 0; i < neighbours.length; i++) 
+                    msg.addArgument((float)neighbours[i]);
+           
+                double[] sensorReading = sensors.read(game);
+                
+                //System.out.print("state:");
+                for (int i = 0; i < sensorReading.length; i++){
+                	//System.out.print(" " + sensorReading[i]);
+                	msg.addArgument((float)sensorReading[i]);
+                }              
+                
+                if (show_moves) System.out.print(timestep + ", " + game.getScore() + " | Next Action: ");
+                
+                //Send inputs to outgoingSocket
+                outgoingPort.send(msg);
+                
+                //Get next MOVE from incomingSocket
+                while (moveReady == false) {
+                    if (sleep) {try{Thread.sleep(1000);}catch(Exception e){ e.printStackTrace(); }}
+                    else {try{Thread.sleep(1);}catch(Exception e){ e.printStackTrace(); }}
+                } moveReady = false;
+                
+                //Advance game
+                if (!newGame) {
+                    if (show_moves) System.out.println(nextMove);
+                    if (!game.gameOver()) {
+                        game.advanceGame(nextMove, ghostController.getMove(game.copy(), -1));
+                    } else { System.err.println("GameOver Error"); System.exit(0);} 
+                }
+                else {                    
+                    if (show_moves) System.out.println("End");
+                    game = new Game(rnd.nextLong());
+                    pacManController.threadRevive();
+                    timestep = 0;
+                    newGame = false;
+                    if (visual){gv = new GameView(game).showGame();}
+                }
+                if (visual) repaintGame(gv);    
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+/*********************************************************************************/   
+    int timeBetweenRepaint = 40;
+    long timeDiff;
+    long sleepTime;
+    public void repaintGame(GameView gv) {
+        timeDiff = System.currentTimeMillis() - timeStart;
+        sleepTime = timeBetweenRepaint - timeDiff;
+        if (sleepTime > 0) {
+            try {
+                Thread.sleep(sleepTime);
+            } catch (Exception e) { e.printStackTrace(); } 
+        }
+        gv.repaint();
+        timeStart = System.currentTimeMillis();
+    }
+}

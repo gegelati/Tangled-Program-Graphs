@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<section name="org.eclipse.ui.texteditor.GotoLineAction$GotoLineDialog_dialogBounds">
+		<item value="399" key="DIALOG_Y_ORIGIN"/>
+		<item value="656" key="DIALOG_X_ORIGIN"/>
+	</section>
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
+		<item value="false" key="isRegEx"/>
+		<item value="writeCheck" key="selection"/>
+		<item value="true" key="casesensitive"/>
+		<item value="false" key="incremental"/>
+		<item value="true" key="wrap"/>
+		<item value="false" key="wholeword"/>
+		<list key="findhistory">
+			<item value="writeCheck"/>
+			<item value="scaleStat"/>
+			<item value="scalseStat"/>
+			<item value="sbbH"/>
+			<item value="counting"/>
+			<item value="setOutcome"/>
+			<item value="nso"/>
+			<item value="numStored"/>
+		</list>
+		<list key="replacehistory">
+			<item value="sbbHP"/>
+			<item value="sbbH"/>
+			<item value="point"/>
+			<item value="map &lt; point *, double, pintLexicalLessThan &gt; :: iterator ouiter;"/>
+			<item value=""/>
+			<item value="pState"/>
+			<item value="bState"/>
+			<item value="_SINGLE_EVAL_PHASE"/>
+		</list>
+	</section>
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
+		<item value="324" key="DIALOG_WIDTH"/>
+		<item value="1|Ubuntu|11.0|0|GTK|1|" key="DIALOG_FONT_NAME"/>
+		<item value="435" key="DIALOG_HEIGHT"/>
+		<item value="393" key="DIALOG_Y_ORIGIN"/>
+		<item value="1110" key="DIALOG_X_ORIGIN"/>
+	</section>
+</section>

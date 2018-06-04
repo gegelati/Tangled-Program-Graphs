@@ -1,0 +1,3 @@
+Import('env')
+
+env.Library('TPG', ['TPG.cc','learner.cc','point.cc','team.cc','misc.cc'], LIBS = 'bz2',CPPPATH=['.'])

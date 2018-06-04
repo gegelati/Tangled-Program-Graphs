@@ -1,0 +1,317 @@
+package pacman;
+
+import edu.utexas.cs.nn.log.DeathLocationsLog;
+import edu.utexas.cs.nn.parameters.Parameters;
+import edu.utexas.cs.nn.tasks.mspacman.facades.GameFacade;
+import edu.utexas.cs.nn.tasks.mspacman.sensors.VariableDirectionBlockLoadedInputOutputMediator;
+import edu.utexas.cs.nn.tasks.mspacman.sensors.mediators.IICheckEachDirectionMediator;
+import pacman.controllers.osc.OSCPacMan;
+
+import java.io.*;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.Random;
+import pacman.controllers.Controller;
+import pacman.controllers.examples.DeterministicLegacy;
+import pacman.controllers.examples.Legacy;
+import pacman.game.Constants.GHOST;
+import pacman.game.Constants.MOVE;
+import pacman.game.GameView;
+import pacman.game.Game;
+import com.illposed.osc.*;
+import java.util.Date;
+import java.net.InetAddress;
+
+@SuppressWarnings("unused")
+public class ExecutorNew {
+
+	public static DeathLocationsLog deaths = null;
+
+	public ExecutorNew() {
+		
+	}
+
+	public static void main(String[] args) {
+		
+		Parameters.initializeParameterCollections(args);
+
+		ExecutorNew exec = new ExecutorNew();
+
+		exec.runExperiment_Socket2(7002, new Legacy());
+			
+		OSCPacMan pacman = new OSCPacMan();
+		pacman.parseCommandlineArguments(args);
+		pacman.setupSockets();	
+
+		int delay = 0;
+		
+		while (true){
+			if (pacman.getGameReady()){
+				pacman.reset();
+				exec.runGame(new OSCPacMan(), new Legacy(), pacman.visual(), delay);
+				pacman.sendEnd();
+			}else {
+				try{Thread.sleep(1);}catch(Exception e){e.printStackTrace();}
+			}
+		}
+	}
+
+	/*********************************************************************************************/
+	public static boolean hold = false;
+	long nextGameSeed;
+	MOVE nextMove;
+	boolean sleep;
+	boolean visual;
+	boolean newGame;
+	boolean moveReady;
+	boolean useRandomSeed;
+	OSCPortIn serverPort;
+	
+	public void runExperiment_Socket2(int port, Controller<EnumMap<GHOST, MOVE>> ghostController) {
+
+		Random rnd = new Random(0);
+		Game game;
+
+		sleep = false;
+		visual = false;
+		useRandomSeed = true;
+		nextGameSeed = 0;
+
+//		Sensors sensors = new Sensors();
+//
+//		try {
+//			int game_server_port = Parameters.parameters.integerParameter("randomSeed");
+//			InetAddress agent_IP = InetAddress.getLocalHost();
+//			int agent_port = game_server_port + 1;
+//			moveReady = false; newGame = false; 
+//
+//			//Set up sockets
+//			OSCPortOut outgoingPort = new OSCPortOut(agent_IP, agent_port);
+//			serverPort = new OSCPortIn(game_server_port);
+//
+//			//Set up listener - START
+//			OSCListener start = new OSCListener() {
+//				public void acceptMessage(Date time, OSCMessage message) {
+//					useRandomSeed = true;
+//					newGame = true;
+//					moveReady = true; 
+//				}
+//			}; serverPort.addListener("start", start);
+//
+//			//Set up listener - ACT
+//			OSCListener act = new OSCListener(){
+//				public void acceptMessage(Date time, OSCMessage message) {
+//					switch ((Integer)message.getArguments()[0]) {
+//					case 0: nextMove = MOVE.UP; break;
+//					case 1: nextMove = MOVE.RIGHT; break;
+//					case 2: nextMove = MOVE.DOWN; break;
+//					case 3: nextMove = MOVE.LEFT; break;
+//					default: nextMove = MOVE.NEUTRAL; 
+//					System.out.println("ERROR: Invalid MOVE: " + (Integer)message.getArguments()[0]);
+//					}
+//					moveReady = true; 
+//				}
+//			}; serverPort.addListener("act", act);
+//
+//			//Set up listener - EXIT
+//			OSCListener exit = new OSCListener(){
+//				public void acceptMessage(Date time, OSCMessage message) {
+//					System.out.println("END");
+//					serverPort.stopListening();
+//					serverPort.close();
+//					try {Thread.sleep(500);}catch(Exception e){}
+//					System.exit(0);
+//				}
+//			}; serverPort.addListener("exit", exit);
+//
+//			//Set up listener - STARTWITHSEED
+//			OSCListener startwithseed = new OSCListener() {
+//				public void acceptMessage(Date time, OSCMessage message) {
+//					nextGameSeed = Long.parseLong((String)message.getArguments()[0]);
+//					useRandomSeed = false;
+//					newGame = true;
+//					moveReady = true; 
+//				}
+//			}; serverPort.addListener("startwithseed", startwithseed);
+//
+//			//Set up listener - VISUAL
+//			OSCListener setvisual = new OSCListener(){
+//				public void acceptMessage(Date time, OSCMessage message) {
+//					visual = true;
+//				}
+//			}; serverPort.addListener("visual", setvisual);
+//
+//			//Set up listener - SLEEP
+//			OSCListener setsleep = new OSCListener() {
+//				public void acceptMessage(Date time, OSCMessage message) {
+//					sleep = true;
+//				}
+//			}; serverPort.addListener("sleep", setsleep);
+//
+//
+//			//Set up listener - WAKE
+//			OSCListener setwake = new OSCListener() {
+//				public void acceptMessage(Date time, OSCMessage message) {
+//					sleep = false;
+//				}
+//			}; serverPort.addListener("wake", setwake);           
+//
+//			//Wait for initial start command
+//			serverPort.startListening();
+//			System.out.println("Server Port: " + game_server_port);
+//			System.out.println("Waiting...");
+//			while (newGame == false || moveReady == false) {System.out.print("");}
+//			moveReady = false; newGame = false; 
+//
+//			//Create new game
+//			game = new Game(rnd.nextLong());
+//			mediator.reset();
+//			System.out.println("Started!");
+//			GameView gv = null;if (visual) {gv = new GameView(game).showGame();}
+//
+//			//Play game.........................................................
+//			while (true) {   
+//				
+//				//Collect state information to send to agent
+//				OSCMessage msg = new OSCMessage("state");
+//
+//				msg.addArgument((float)((game.gameOver())?1:0));
+//				msg.addArgument((float)game.getScore());
+//				msg.addArgument((float)game.getEatenPills());
+//				msg.addArgument((float)game.getEatenGhosts());
+//				msg.addArgument((float)77);//game.getNodeXCood(game.getPacmanCurrentNodeIndex()));
+//				msg.addArgument((float)77);//game.getNodeYCood(game.getPacmanCurrentNodeIndex()));
+//
+//				GameFacade gs = new GameFacade(game);
+//
+//				int[] neighbours = gs.neighbors(gs.getPacmanCurrentNodeIndex());
+//				
+//				//skelly sensors
+//				for (int i = 0; i < neighbours.length; i++) 
+//					msg.addArgument((float)neighbours[i]);
+//				//Save neighbours - Pacman cannot go to direction of -1 (a wall)
+//				
+//				double[] sensorReading = sensors.read(game);
+//
+//				//System.out.print("state:");
+//				for (int i = 0; i < sensorReading.length; i++){
+//					//System.out.print(" " + sensorReading[i]);
+//					msg.addArgument((float)sensorReading[i]);
+//				} 
+//				
+////				//jschrum sensors (faster?)
+////                int aNonWall = -1;
+////                for (int i = 0; i < neighbours.length; i++) {
+////                    msg.addArgument((float)neighbours[i]);
+////                    if (neighbours[i] != -1) aNonWall = i;
+////                }
+////                			
+////				mediator.mediatorStateUpdate(gs);
+////				boolean first = true; 
+////			    double[][] full_inputs = new double[4][1]; 
+////			    for (int i = 0; i < 4; i++) Arrays.fill(full_inputs[i], -1); 
+////			   
+////			    for (int i = 0; i < neighbours.length; i++) {
+////		                mediator.setDirection(i);
+////		                double[] inputs = mediator.getInputs(gs, gs.getPacmanLastMoveMade());
+////		                if (first) { first = false; full_inputs = new double[4][inputs.length]; } 
+////		                for (int ab = 0; ab < inputs.length; ab++) full_inputs[i][ab] = inputs[ab]; 
+////			    }
+////			    
+////			    //Save  inputs
+////                int nonDirectionOrientedIndex[] = {22,23,24,25,26,27,28};  // 7 non-directed       
+////
+////                // ----- first save the non direction-oriented inputs
+////                for (int i = 0; i < nonDirectionOrientedIndex.length; i++) {
+////                    msg.addArgument((float)full_inputs[aNonWall][nonDirectionOrientedIndex[i]]);
+////                }
+////
+////                // ----- save the remaining direction-oriented inputs // 22 directed
+////                for (int i = 0; i < 4; i++) {
+////                    for (int j = 1; j < 22; j++) 
+////                        msg.addArgument((float)full_inputs[i][j]);
+////                    msg.addArgument((float)full_inputs[i][29]); //OFNJ
+////                }			
+//
+//				//Send inputs to outgoingSocket
+//				outgoingPort.send(msg);
+//
+//				//Get next MOVE from incomingSocket
+//				while (moveReady == false) {
+//					if (sleep) {try{Thread.sleep(1000);}catch(Exception e){ e.printStackTrace(); }}
+//					else {try{Thread.sleep(1);}catch(Exception e){ e.printStackTrace(); }}
+//				} moveReady = false;
+//
+//				//Advance game
+//				if (!newGame) {
+//					if (!game.gameOver()) {
+//						game.advanceGame(nextMove, ghostController.getMove(game.copy(), -1));
+//					} else { System.err.println("GameOver Error"); System.exit(0);} 
+//				}
+//				else {
+//					game = new Game(rnd.nextLong());
+//					mediator.reset();
+//					newGame = false;
+//					if (visual){gv = new GameView(game).showGame();}
+//				}
+//				if (visual) repaintGame(gv);    
+//			}
+//		}
+//		catch (Exception e) {
+//			e.printStackTrace();
+//		}
+	}
+	
+	
+	/**
+     * Run a game in asynchronous mode: the game waits until a move is returned.
+     * In order to slow thing down in case the controllers return very quickly,
+     * a time limit can be used. If fastest gameplay is required, this delay
+     * should be put as 0.
+     *
+     * @param pacManController The Pac-Man controller
+     * @param ghostController The Ghosts controller
+     * @param visual Indicates whether or not to use visuals
+     * @param delay The delay between time-steps
+     */
+    public void runGame(Controller<MOVE> pacManController, Controller<EnumMap<GHOST, MOVE>> ghostController, boolean visual, int delay) {
+        Game game = new Game(0);
+
+        GameView gv = null;
+
+        if (visual) {
+            gv = new GameView(game).showGame();
+        }
+
+        while (!game.gameOver()) {
+            game.advanceGame(pacManController.getMove(game.copy(), -1), ghostController.getMove(game.copy(), -1));
+            
+            try {
+                Thread.sleep(delay);
+            } catch (Exception e) {
+            }
+
+            if (visual) {
+                gv.repaint();
+            }
+        }
+    }
+	
+	
+	/*********************************************************************************************/  
+	int timeBetweenRepaint = 40;
+	long timeDiff;
+	long timeStart;
+	long sleepTime;
+	public void repaintGame(GameView gv) {
+		timeDiff = System.currentTimeMillis() - timeStart;
+		sleepTime = timeBetweenRepaint - timeDiff;
+		if (sleepTime > 0) {
+			try {
+				Thread.sleep(sleepTime);
+			} catch (Exception e) { e.printStackTrace(); } 
+		}
+		gv.repaint();
+		timeStart = System.currentTimeMillis();
+	}
+}

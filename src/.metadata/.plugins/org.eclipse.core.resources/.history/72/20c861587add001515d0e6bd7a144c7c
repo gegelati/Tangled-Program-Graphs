@@ -1,0 +1,24 @@
+package pacman;
+
+import pacman.game.Constants.GHOST;
+
+public class GhostSensorReading implements Comparable<GhostSensorReading>{
+	public GHOST ghost;
+	public Double distance;
+	public Integer ghostApproaching;
+	public Integer pathToGhostContainsJunction;
+	public Integer ghostEdible;
+	
+	public GhostSensorReading(GHOST g, double d, int ga, int p, int ge){
+		ghost = g;
+		distance = d;
+		ghostApproaching = ga;
+		pathToGhostContainsJunction = p;
+		ghostEdible = ge;
+	}
+	
+	public int compareTo(GhostSensorReading other)
+	  {
+	    return distance.compareTo(other.distance);
+	  }
+}

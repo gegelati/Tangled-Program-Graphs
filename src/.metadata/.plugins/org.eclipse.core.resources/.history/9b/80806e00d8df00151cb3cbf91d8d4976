@@ -1,0 +1,407 @@
+package game.controllers.pacman.osc;
+
+import game.core.G;
+import game.core.GameView;
+
+import java.awt.Color;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import game.core.Game;
+import java.util.*;
+
+public class Sensors {
+
+	/**
+	 * The current setup will return a close approximation of the sensors used in: 
+	 * Jacob Schrum and Risto Miikkulainen, "Discovering Multimodal Behavior in 
+	 * Ms. Pac-Man through Evolution of Modular Neural Networks", IEEE Transactions 
+	 * on Computational Intelligence and AI in Games (2015). 
+	 *
+	 * There are 7 non-directed sensors plus 22 directed sensors for each of 4 directions,
+	 * for a total of (7 + (4 * 22)) = 95 sensors.
+	 */
+
+	final int NUM_SENSORS = 95;
+	final int MAX_DISTANCE = 200;
+	final int STEPS_BETWEEN_PILLS = 4;
+	final int STEPS_BETWEEN_JUNCTIONS = 7;
+	final int CLOSE_TO_PILL_THRESHOLD = 10;
+	final double DOUBLE_DYNAMIC_RANGE = 50.0;
+	final double BOOL_INPUT_HIGH = 5.0;
+	final double BOOL_INPUT_LOW = -5.0;
+
+	long startTime; long endTime; long totalTime;
+
+	//	private void timeIn(){
+	//		startTime = System.nanoTime();
+	//	}
+	//	
+	//	private void timeOut(String label){
+	//		long endTime   = System.nanoTime();
+	//		long totalTime = endTime - startTime;
+	//		System.out.println("Time " + label + " " + totalTime/1000);
+	//	}
+
+	public double[] read(Game game){
+
+
+		int currentLocation = game.getCurPacManLoc();
+		int numReadings = 0;
+		double[] sensorReadings = new double[NUM_SENSORS];
+
+		/* Common Undirected ***************************************/
+
+		//Proportion Power Pills CHECKED
+		sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*(double)game.getNumActivePowerPills() / (double)game.getNumberPowerPills();
+		//Proportion Pills CHECKED
+		sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*(double)game.getNumActivePills() / (double)game.getNumberPills(); 
+
+		//Number of Edible Ghosts CHECKED
+		int numEdibleGhosts = 0;
+		int totalLairTime = 0;
+		double remainingGhostEdibleTime = 0;
+		for (int i = 0; i < Game.NUM_GHOSTS; i++){
+			if (game.isEdible(i)){
+				numEdibleGhosts++;
+				remainingGhostEdibleTime += game.getEdibleTime(i);
+			}
+			totalLairTime += game.getLairTime(i);
+		}
+		sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*(double)numEdibleGhosts / (double)Game.NUM_GHOSTS; 
+
+
+		//Remaining Ghost Edible Time CHECKED
+		sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*((double)remainingGhostEdibleTime / (double)Game.NUM_GHOSTS)/Game.EDIBLE_TIME;
+
+
+		//Any Ghosts Edible? CHECKED
+		sensorReadings[numReadings++] = numEdibleGhosts > 0 ? BOOL_INPUT_HIGH : BOOL_INPUT_LOW; 
+
+
+		//All Threat Ghosts Present? CHECKED
+		sensorReadings[numReadings++] = !(totalLairTime > 0) && (numEdibleGhosts == 0) ? BOOL_INPUT_HIGH : BOOL_INPUT_LOW; 
+
+
+		//Close to Power Pill? CHECKED
+		int closestPowerPillDistance = Integer.MAX_VALUE;
+		int[] activePowerPills=game.getPowerPillIndicesActive();
+		if (activePowerPills.length > 0){
+			int closestPowerPillTarget = game.getTarget(currentLocation,activePowerPills,true,G.DM.PATH);
+			closestPowerPillDistance = game.getPathDistance(currentLocation, closestPowerPillTarget);
+		}
+		sensorReadings[numReadings++] = closestPowerPillDistance < CLOSE_TO_PILL_THRESHOLD ? BOOL_INPUT_HIGH : BOOL_INPUT_LOW;
+
+		/* Directed **********************************************/
+
+		for (int dir = 0; dir < 4; dir++){
+
+			Color colour;
+			switch(dir){
+			case 0: colour = Color.RED; break;
+			case 1: colour = Color.GREEN; break;
+			case 2: colour = Color.BLUE; break;
+			case 3: colour = Color.YELLOW; break;
+			default: colour = Color.RED; break;
+			}
+
+			/* Common Directed ***************************************/
+
+			double d;
+
+			//Distance to closest regular pill in given direction CHECKED
+			d = (double)closestTargetInDir(game, game.getPillIndicesActive(), dir,false).t1;
+			sensorReadings[numReadings++] = d == Integer.MAX_VALUE ? DOUBLE_DYNAMIC_RANGE : DOUBLE_DYNAMIC_RANGE*d/MAX_DISTANCE; 
+			//			if(d != Integer.MAX_VALUE)
+			//			  GameView.addPoints(game,Color.GREEN,closestTargetInDir(game, game.getPillIndicesActive(), dir,false).t2);
+
+			//Distance to closest power pill in given direction CHECKED
+			d = (double)closestTargetInDir(game, game.getPowerPillIndicesActive(), dir,false).t1;
+			sensorReadings[numReadings++] = d == Integer.MAX_VALUE ? DOUBLE_DYNAMIC_RANGE : DOUBLE_DYNAMIC_RANGE*d/MAX_DISTANCE;
+			//			if(d != Integer.MAX_VALUE)
+			//				  GameView.addPoints(game,Color.GREEN,closestTargetInDir(game, game.getPowerPillIndicesActive(), dir,false).t2);
+
+
+
+			//Distance to closest maze junction in given direction CHECKED
+			d = (double)closestTargetInDir(game, game.getJunctionIndices(), dir,false).t1;
+			sensorReadings[numReadings++] = d == Integer.MAX_VALUE ? DOUBLE_DYNAMIC_RANGE : DOUBLE_DYNAMIC_RANGE*d/MAX_DISTANCE;
+			//			if(d != Integer.MAX_VALUE)
+			//				  GameView.addPoints(game,Color.GREEN,closestTargetInDir(game, game.getJunctionIndices(), dir,false).t2);
+
+
+			//Conflict Ghost Sensors
+
+			int[] junctions = game.getJunctionIndices();
+			int[] neighbours = game.getPacManNeighbours();
+			ArrayList<GhostSensorReading> ghostSensors = new ArrayList<GhostSensorReading>();
+			for (int i = 0; i < Game.NUM_GHOSTS; i++){
+				int[] path;
+				double distToGhost = DOUBLE_DYNAMIC_RANGE;
+				double ghostApproaching = BOOL_INPUT_LOW;
+				double pathToGhostContainsJunction = BOOL_INPUT_HIGH;
+				double ghostEdible = BOOL_INPUT_LOW;
+
+				if (neighbours[dir] != 0 && game.getLairTime(i) == 0){
+
+					//Distance to ghost CHECKED
+					path = game.getDirectedPath(currentLocation, game.getCurGhostLoc(i), dir);
+					distToGhost = DOUBLE_DYNAMIC_RANGE*(double)path.length/MAX_DISTANCE;
+
+					//CHECKED
+					//ghostApproaching = 	BOOL_INPUT_HIGH; 
+					int[] ghostPathToPacman = game.getGhostPath(i, currentLocation);
+					int[] shortestPath = game.getPath(game.getCurGhostLoc(i), currentLocation);
+					ghostApproaching = ghostPathToPacman.length == shortestPath.length ? BOOL_INPUT_HIGH : BOOL_INPUT_LOW;
+					//if (ghostPathToPacman.length > 1)
+					//	ghostApproaching =  game.getNeighbour(game.getCurGhostLoc(i),game.getCurGhostDir(i)) == ghostPathToPacman[1] ? BOOL_INPUT_HIGH : BOOL_INPUT_LOW;
+
+					//CHECKED
+					pathToGhostContainsJunction = BOOL_INPUT_LOW;					
+					for (int j = 0; j < junctions.length && pathToGhostContainsJunction < 0; j++)
+						if (countOccurrences(junctions[j], path) > 0)
+							pathToGhostContainsJunction = BOOL_INPUT_HIGH;	
+
+					ghostEdible = game.isEdible(i) ? BOOL_INPUT_HIGH : BOOL_INPUT_LOW;
+				}
+
+				ghostSensors.add(new GhostSensorReading(distToGhost, ghostApproaching, pathToGhostContainsJunction, ghostEdible, i));
+			}
+
+			Collections.sort(ghostSensors);
+
+//			if (neighbours[dir] != -1 && game.getLairTime(ghostSensors.get(0).id) == 0){
+//				//if ( ghostSensors.get(0).ghostApproaching > 0) colour = Color.CYAN;
+//				//if (ghostSensors.get(0).pathToGhostContainsJunction > 0) colour = Color.ORANGE;
+//				if (ghostSensors.get(0).ghostEdible > 0) colour = Color.PINK;
+//				GameView.addPoints(game, colour,game.getDirectedPath(currentLocation, game.getCurGhostLoc(ghostSensors.get(0).id),dir));
+//			}
+
+			for (int i = 0; i < ghostSensors.size(); i++)
+				sensorReadings[numReadings++] = ghostSensors.get(i).distance;
+			for (int i = 0; i < ghostSensors.size(); i++)
+				sensorReadings[numReadings++] = ghostSensors.get(i).ghostApproaching;
+			for (int i = 0; i < ghostSensors.size(); i++)
+				sensorReadings[numReadings++] = ghostSensors.get(i).pathToGhostContainsJunction;
+			for (int i = 0; i < ghostSensors.size(); i++)
+				sensorReadings[numReadings++] = ghostSensors.get(i).ghostEdible;
+
+
+			neighbours = game.getPacManNeighbours();		
+			//Number of pills on the path in the given direction that has the most pills //CHECKED
+			sensorReadings[numReadings++] = neighbours[dir] != -1 ? DOUBLE_DYNAMIC_RANGE*maxTargetsInKSteps(game.copy(),dir, game.getPillIndicesActive(),30,STEPS_BETWEEN_PILLS) : 0;
+			//Number of junctions on the path in the given direction that has the most junctions //CHECKED
+			sensorReadings[numReadings++] = neighbours[dir] != -1 ? DOUBLE_DYNAMIC_RANGE*maxTargetsInKSteps(game.copy(),dir, game.getJunctionIndices(),30,STEPS_BETWEEN_JUNCTIONS) : 0;
+			//OFNJ CHECKED
+			sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*OFNJ(game, dir);
+		}
+
+		//		DecimalFormat df = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+		//		df.setMaximumFractionDigits(5); //340 = DecimalFormat.DOUBLE_FRACTION_DIGITS
+		//		
+		//		System.out.print("state:");
+		//		for (int i = 1; i < numReadings; i++)//skip bias
+		//			System.out.print(" " + df.format(sensorReadings[i]));
+		//		System.out.println();
+
+		return sensorReadings;
+	}
+
+	/**
+	 * Number of target on the path in the given direction that has the most targets
+	 *
+	 * @param game the game state 
+	 * @param dir the direction
+	 * @param targets array of targets
+	 * @param stepsBetweenTargets steps between targets (4.0 for pills, 7.0 for junctions
+	 * @return distToClosestTargetInDir is the node index of closest target
+	 */
+	public double maxTargetsInKSteps(Game game, int dir, int[] targets, int stepCount, int stepsBetweenTargets){	
+		boolean max = true;
+		final int currentLocation=game.getCurPacManLoc();
+		final int[] neighbors = game.getPacManNeighbours();
+		final int next = neighbors[dir];
+		assert next != -1 : "The next direction is not viable!";
+		ArrayList<Integer> visited = new ArrayList<Integer>();
+		visited.add(currentLocation);
+		double count = countMembersAlongPath(game.copy(), visited, targets, currentLocation, next, stepCount, max);
+		double maxCount = (int) Math.ceil((double)stepCount / (double)stepsBetweenTargets);
+		return maxCount == 0 ? 0 : count / maxCount; // Normalized
+	}
+
+	/**
+	 * Recursive method for counting the number of targets along paths a certain
+	 * number of steps from the starting point in a given direction.
+	 *
+	 * @param game the game state
+	 * @param visited locations that have already been visited along the given
+	 * path. Note that the path may loop on to itself, and then continue on into
+	 * new areas.
+	 * @param targets objects that should be counted if they occur along the
+	 * path
+	 * @param sourceLocation where pacman came from. Cannot go back to this
+	 * location.
+	 * @param currentLocation where pacman currently is
+	 * @param remainingSteps How much further to continue along the path.
+	 * @return maximum number of targets found along all available paths
+	 */
+	public  int countMembersAlongPath(Game game, ArrayList<Integer> visited, int[] targets, int sourceLocation, int currentLocation, int remainingSteps, boolean max) {
+		assert visited.contains(sourceLocation) : "Must have visited source location";
+		if (remainingSteps == 0) {
+			return 0;
+		} else {
+			final int[] neighbors = new int[4];
+			neighbors[0] = game.getNeighbour(currentLocation,0);
+			neighbors[1] = game.getNeighbour(currentLocation,1);
+			neighbors[2] = game.getNeighbour(currentLocation,2);
+			neighbors[3] = game.getNeighbour(currentLocation,3);
+			boolean foundReverse = false;
+			for (int i = 0; i < neighbors.length && !foundReverse; i++) {
+				if (neighbors[i] == sourceLocation) {
+					neighbors[i] = -1; // Don't go backwards
+					foundReverse = true;	
+				}
+			}
+			assert foundReverse : "Should always find the reverse direction";
+			int aggregateCount = max ? -1 : Integer.MAX_VALUE;
+			visited.add(currentLocation);
+			for (int i = 0; i < neighbors.length; i++) {
+				if (neighbors[i] != -1) {
+					int count = countMembersAlongPath(game.copy(), visited, targets, currentLocation, neighbors[i], remainingSteps - 1, max);
+					aggregateCount = max ? Math.max(aggregateCount, count) : Math.min(aggregateCount, count);
+				}
+			}
+			assert visited.get(visited.size() - 1) == currentLocation : "Should be popping the currentLocation off end of list";
+			visited.remove(visited.size() - 1); // Should remove currentLocation
+			boolean alreadyCounted = visited.contains(currentLocation);
+			int targetsToCount = alreadyCounted ? 0 : countOccurrences(currentLocation, targets);
+			return aggregateCount + targetsToCount;
+		}
+	}
+
+	/**
+	 * Options From Next Junction (OFNJ)
+	 * 
+	 * Looks at the next junction in a given direction, and counts the
+	 * number of subsequent junctions that can be safely reached from 
+	 * the first junction. The safety of a route can be determined by 
+	 * taking all agent distances into account and conservatively 
+	 * assuming ghosts will follow the shortest path to the target 
+	 * junction.
+	 *
+	 * @param game the game state
+	 * @param dir the direction
+	 */
+	public double OFNJ(Game game, int dir){
+		int[] neighbours = game.getPacManNeighbours();
+		if (neighbours[dir] == -1) return 0;
+		int[] junctions = game.getJunctionIndices();
+		int closestSafeJunctionInDir = closestSafeTargetInDir(game, junctions, dir);  
+		if (closestSafeJunctionInDir < 0) return 0;
+		//Options from Junction
+		int options = 0;
+		for (int j = 0; j < junctions.length; j++)
+			if (junctions[j] != closestSafeJunctionInDir && isPacManCloserThanAnyThreatGhost(game, game.getCurPacManLoc(),junctions[j])){
+				options++;
+				//if (dir == 1)GameView.addPoints(game,Color.GREEN,junctions[j]);
+			}
+		return (double)options/junctions.length;
+	}
+
+	/**
+	 * Returns the closest "safe" target in a given direction.
+	 *
+	 * @param game the game state
+	 * @param targets array of targets 
+	 * @param dir the direction
+	 * @return distToClosestTargetInDir is the distance to the closest target in direction,
+	 *          or -1 if the direction is not valid.
+	 */
+	public int closestSafeTargetInDir(Game game, int[] targets, int dir){
+		int currentLocation = game.getCurPacManLoc();
+		int distToClosestTargetInDir = Integer.MAX_VALUE;
+		int closestSafeTargetInDir = -1;
+		int[] neighbours = game.getPacManNeighbours();
+
+		if (neighbours[dir] == -1) 
+			return closestSafeTargetInDir;
+
+		for(int i = 0; i < targets.length; i++){
+			int[] path = game.getDirectedPath(currentLocation, targets[i], dir);
+
+			if ( path.length < distToClosestTargetInDir && isPacManCloserThanAnyThreatGhost(game, currentLocation, targets[i])){
+				distToClosestTargetInDir = path.length;
+				closestSafeTargetInDir = targets[i];
+			}
+		}
+		//GameView.addPoints(game, Color.CYAN, closestSafeTargetInDir);
+		return closestSafeTargetInDir;
+	}
+
+	/**
+	 * Returns the distance to the closest target in a given 
+	 * direction and the path to it.
+	 *
+	 * @param game the game state
+	 * @param targets array of targets 
+	 * @param dir the direction
+	 * @return 
+	 */
+	public Pair <Integer, int[]> closestTargetInDir(Game game, int[] targets, int dir, boolean viz){
+		int[] selectedPath = null;
+		int distToClosestTargetInDir = Integer.MAX_VALUE;
+		int[] neighbours = game.getPacManNeighbours();
+		if (neighbours[dir] == -1) 
+			return new Pair <Integer, int[]>(distToClosestTargetInDir,null);
+
+			for(int i = 0; i < targets.length; i++){
+				int[] path = game.getDirectedPath(neighbours[dir], targets[i], dir);//DirectedPath!!
+
+				if ( path.length < distToClosestTargetInDir){
+					distToClosestTargetInDir = path.length;
+					selectedPath = path;
+				}
+			}
+			//if (viz) GameView.addPoints(game, Color.GREEN, viz_path);
+			return new Pair <Integer, int[]>(distToClosestTargetInDir + 1, selectedPath);
+	}
+
+	/**
+	 * @param game the game state
+	 * @param target node index of target
+	 * @param dir the direction
+	 * @return true if pacman is closer to target than any threat ghost
+	 */
+	public boolean isPacManCloserThanAnyThreatGhost(Game game,int pacmanLocation, int target){
+		for (int i = 0; i < Game.NUM_GHOSTS; i++){   
+			if (game.getLairTime(i) == 0  && !game.isEdible(i))
+				if (game.getPathDistance(pacmanLocation, target) > game.getGhostPathDistance(i,target)) 
+					return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Count number of occurrences of the given value in the array
+	 *
+	 * @param value value to look for
+	 * @param array set of values
+	 * @return count of occurrences of value
+	 */
+	public int countOccurrences(int value, int[] array) {
+		int total = 0;
+		for (int i = 0; i < array.length; i++) {
+			if (array[i] == value) {
+				total++;
+			}
+		}
+		return total;
+	}
+
+	public static String fmt(double d)
+	{
+		if(d == (long) d)
+			return String.format("%d",(long)d);
+		else
+			return String.format("%s",d);
+	}
+}

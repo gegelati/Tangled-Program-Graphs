@@ -1,0 +1,6 @@
+Import('env')
+import os
+env['TPGPATH'] = os.environ.get('TPGPATH','default')
+env.Append( CPPPATH=['../TPG','/usr/include/SDL/',"$TPGPATH/ale_0.5.1/src/"] )
+env.Program('display', ['display.cc'],LIBS = ['TPG','bz2','libale','SDL'], LIBPATH=['../TPG',"$TPGPATH/ale_0.5.1",'/usr/lib/x86_64-linux-gnu'])
+

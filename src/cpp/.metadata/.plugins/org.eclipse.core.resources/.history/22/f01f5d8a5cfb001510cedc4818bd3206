@@ -1,0 +1,529 @@
+#include <iomanip>      // std::setprecision
+#include <iostream>
+#include <atomic>
+#ifndef WIN32
+#include <unistd.h>
+#endif
+#include <lo/lo.h>
+#include <lo/lo_cpp.h>
+#include "../sbbHP/sbbHP.h"
+#include <vector>
+#include <ctime>
+#include "Parse.h"
+#define P_ADD_PROFILE_POINT 0.0005
+#define MAX_BEHAVIOUR_STEPS 5
+#define NUM_SENSOR_INPUTS 95
+#define SBB_DIM 29
+#define DOUBLE_DYNAMIC_RANGE 50.0
+#define BOOL_DYNAMIC_RANGE 10.0
+#define POINT_DIM 7
+//int ppAct = 0;
+//int pathToNearestPowerPill[] = {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0};
+/***********************************************************************************************************************/
+// Globals used by state_handler and runEval
+vector < double > currentState;
+vector < int > neighbours;
+//double gameScore;
+//double pillsEaten;
+//double ghostsEaten;
+vector<double> rewards;
+double xCoord;
+double yCoord;
+atomic<int> episodeEnd; //used for synching with background threads, so make atomic
+atomic<bool> newState; //used for synching with background threads, so make atomic
+
+/*
+   SENSOR INPUTS
+   We have 95 sensor inputs: 7 non-directed  + 22 directed for each of 4 directions.
+
+Note: B is for Boolean (0 or 1) | R is for Range (a number between and including 0 and 1)
+
+For inputs [0 to 6]: [R, R, R, R, B, B, B]
+For inputs [7 to 28]: [R, R, R, R, B, B, B, R, B, B, B, R, B, B, B, R, B, B, B, R, R, R]
+For inputs [29 to 50]: Same as previous list of 22
+For Inputs [51 to 72]: Same as previous list of 22
+For inputs [73 to 94]: Same as previous list of 22
+
+int[] B={0r,1r,2r,3r,4,5,6,
+7r,8r,9r,10r,11,12,13,14r,15,16,17,18r,19,20,21,22r,23,24,25,26r,27r,28r,
+29r,30r,31r,32r,33,34,35,36r,37,38,39,40r,41,42,43,44r,45,46,47,48r,49r,50r,
+51r,52r,53r,54r,55,56,57,58r,59,60,61,62r,63,64,65,66r,67,68,69,70r,71r,72r,
+73r,74r,75r,76r,77,78,79,80r,81,82,83,84r,85,86,87,88r,89,90,91,92r,94r,94r
+ */
+// Global used by mspacmanDiscretizeState and scaleState
+vector<int> BOOL_INPUTS = {4,5,6,
+	11,12,13,15,16,17,19,20,21,23,24,25,
+	33,34,35,37,38,39,41,42,43,45,46,47,
+	55,56,57,59,60,61,63,64,65,67,68,69,
+	77,78,79,81,82,83,85,86,87,89,90,91};
+bool stateVarIsBool[NUM_SENSOR_INPUTS];
+/***********************************************************************************************************************/
+// This method works for the full sensor vector (95 features) and/or a single directed state observation (29 features)
+void mspacmanDiscretizeState(vector < double > &state, int steps)
+{
+	for (size_t i = 0; i < state.size(); i++) {
+		if (stateVarIsBool[i])
+			state[i] = discretize(state[i], -(BOOL_DYNAMIC_RANGE/2), BOOL_DYNAMIC_RANGE/2,steps);
+		else
+			state[i] = discretize(state[i],0, DOUBLE_DYNAMIC_RANGE, steps);
+	}
+}
+/***********************************************************************************************************************/
+int end_handler(const char *path, const char *types, lo_arg ** argv,
+		int argc, void *data, void *user_data)
+{
+	episodeEnd.store(1.0);
+	return 0;
+}
+/***********************************************************************************************************************/
+int state_handler(const char *path, const char *types, lo_arg ** argv,
+		int argc, void *data, void *user_data)
+{
+	//episodeEnd.store((int)argv[0]->f);
+	rewards[0] = argv[1]->f;
+	rewards[1] = argv[2]->f;
+	rewards[2] = argv[3]->f;
+	xCoord = argv[4]->f;
+	yCoord = argv[5]->f;
+	neighbours[0] = argv[6]->f;
+	neighbours[1] = argv[7]->f;
+	neighbours[2] = argv[8]->f;
+	neighbours[3] = argv[9]->f;
+
+	for (int i = 0; i < NUM_SENSOR_INPUTS; i++) {
+		currentState[i] = argv[i+10]->f;
+	}
+
+	//	 cout << " episodeEnd " << episodeEnd.load() << " gameScore " << rewards[0] << " pillsEaten " << rewards[1] << " ghostsEaten " << rewards[2];
+	//	 cout << " xCoord " << xCoord << " yCoord " << yCoord;
+	//	 cout << " neighbours " << neighbours[0] << " " << neighbours[1] << " " << neighbours[2] << " " <<neighbours[3];
+	//	 cout << " state:";
+	//
+	//	 for (int i = 0; i < NUM_SENSOR_INPUTS; i++)
+	//	   cout << std::setprecision(5) << " " << currentState[i];
+	//	 cout << endl;
+
+	newState.store(true);
+	return 0;
+}
+/***********************************************************************************************************************/
+void scaleState(vector < double > &state)
+{
+	//cout << "rawState " << vecToStr(state) << endl;
+	for (size_t i = 0; i < state.size(); i++) {
+		//if (find(BOOL_INPUTS.begin(), BOOL_INPUTS.end(),i) != BOOL_INPUTS.end())
+		if (stateVarIsBool[i])
+			state[i] = state[i]>0?BOOL_DYNAMIC_RANGE/2:-(BOOL_DYNAMIC_RANGE/2);
+		else
+			state[i] = state[i] * DOUBLE_DYNAMIC_RANGE;
+	}
+	//cout << "scaledState " << vecToStr(state) << endl;
+}
+/***********************************************************************************************************************/
+// dir must be one of 4 directions: 0-3. There are 29 inputs in total, 7 non-directed and 22 directed
+void getDirectedState(vector < double > &currentState, vector < double > &directionalState, int dir){
+	directionalState.clear();
+	for (int i = 0; i < 7; i++)//7 non-directed inputs: 0-6
+		directionalState.push_back(currentState[i]);
+	for (int i = 0; i < 22; i++)//22 directed inputs; dir=0(7-28); dir=1(29-50); dir=2(51-72); dir=3(73-94)
+		directionalState.push_back(currentState[(7+(dir*22))+i]);
+}
+
+/***********************************************************************************************************************/
+// Checks if the nextAction will lead pacman into a wall
+int isTowardWall(vector < int > &n, int nextAction) {
+	if (n[nextAction] >= 0)
+		return 0;
+	else
+		return 1;
+} 
+/***********************************************************************************************************************/
+void init (vector <double> &s, vector < int > &n, int dim){
+	s.clear();
+	n.clear();
+
+	for (int i = 0; i < dim; i++) {
+		s.push_back(0);
+
+		if (find(BOOL_INPUTS.begin(), BOOL_INPUTS.end(),i) != BOOL_INPUTS.end())
+			stateVarIsBool[i] = true;
+		else
+			stateVarIsBool[i] = false;
+	}
+
+	for (int i = 0; i < 4; i++)
+		n.push_back(0);
+
+	for (int i = 0; i < 3; i++)
+		rewards.push_back(0);
+}
+/***********************************************************************************************************************/
+void runEval(lo::Address &mspacmanGameServer, lo::Address &mspacmanPointServer, sbbHP &sbbEval, int port, int t, int level, int phase, bool usePoints, bool visual, int &timeGenTotalInGame, int hostToReplay){
+
+	int timeStartGame;
+	vector < double > behaviourSequence; // store a discretized trajectory for diversity maintenance
+	vector < double > tmpBehaviourSequence;
+	vector < double > directedState;
+	vector < double > selectedDirectedState;
+	int currentAction;
+	int prevAction;
+	long decisionInstructions;
+	int prevProfileId = -1;
+	int newProfilePoints = 0;
+	map<int,int> directedActions;
+	map<double,int, std::greater<double> > directionPreferences;
+	vector < set <learner*, LearnerBidLexicalCompare> > learnersRanked(sbbEval.numLevels(),set < learner*,LearnerBidLexicalCompare>());
+	episodeEnd.store(0);
+
+
+	vector <team*> teams;
+	sbbEval.getTeams(teams);
+	vector <point*> points;
+	sbbEval.getPoints(points);
+	if (visual) mspacmanGameServer.send("visual");
+	int step = 0;
+	int prevF = 0;
+	for (size_t i_t = 0; i_t < teams.size(); i_t++){
+		size_t numEval = usePoints ? points.size() : sbbEval.pSize();
+		if ( hostToReplay < 0 || (hostToReplay >= 0 && teams[i_t]->id() == hostToReplay)){
+			for (size_t i_p = 0; i_p < numEval; i_p++){
+				if((usePoints && !teams[i_t]->hasOutcome(points[i_p])) || (!usePoints && teams[i_t]->numOutcomes(phase) < numEval)){
+					cout << "runEval t " << t << " level " << level << " tm " << teams[i_t]->id();
+					if (usePoints) cout << " on point " << points[i_p]->id() << endl;
+					else cout << " numOut " << teams[i_t]->numOutcomes(phase) << endl;
+					step++;
+					if (visual){
+                                             cout << "currentTeam: " << teams[i_t]->id() << endl;
+                                             sbbEval.printTeamInfo(-1,-1,0);
+                                        }
+					if (usePoints){
+						vector<double> pState;// = {.1,.2,.3,.4,.5,.6,.7,.8};
+						points[i_p]->pointState(pState);
+						mspacmanPointServer.send("point", "ffffffff",
+								(float)pState[0],
+								(float)pState[1],
+								(float)pState[2],
+								(float)pState[3],
+								(float)pState[4],
+								(float)pState[5],
+								(float)pState[6]);
+					}
+					mspacmanGameServer.send("start");
+					prevAction = 0;
+					timeStartGame = time(NULL);
+					while (newState.load() == false && episodeEnd.load() < 1){ usleep(1000); } newState.store(false); //wait for initial state from server
+					while (episodeEnd.load() < 1){
+						scaleState(currentState);
+						directionPreferences.clear();
+						for (int i_d = 0; i_d < 4; i_d++){ //0:UP 1:RIGHT 2:DOWN 3:LEFT
+							if (!isTowardWall(neighbours,i_d)){
+								getDirectedState(currentState,directedState,i_d);
+								for (int l = 0; l < sbbEval.numLevels(); l++)learnersRanked[l].clear();
+								decisionInstructions = 0;
+								if (sbbEval.getAction(teams[i_t], directedState, (phase==_TRAIN_PHASE?true:false), learnersRanked, decisionInstructions) == -1) //"go" action
+									directionPreferences.insert(pair<double,int>((*(learnersRanked[level].begin()))->key(),i_d));
+								if (drand48() < P_ADD_PROFILE_POINT && teams[i_t]->id() != prevProfileId){
+									sbbEval.addProfilePoint(directedState,rewards,phase,t);
+									prevProfileId = teams[i_t]->id();
+									newProfilePoints++;
+								}
+							}
+						}
+						if (directionPreferences.size() > 0){
+							currentAction = (directionPreferences.begin()->second);
+#ifdef PACMANDEBUG
+							cout << "foundAct " << currentAction << " since " << step-prevF  << " prefSize " << directionPreferences.size();
+							for(map<double,int> :: iterator it = directionPreferences.begin(); it != directionPreferences.end(); it++)
+								cout << " " << it->first << "->" << it->second;
+							cout << endl;
+							prevF = step;
+#endif
+						}
+						else{
+							currentAction = prevAction;
+							while (isTowardWall(neighbours,currentAction)){
+								currentAction++;
+								currentAction = currentAction%4;
+							}
+						}
+#ifdef PACMANDEBUG
+						if (isTowardWall(neighbours,currentAction)) cout << "WTF Wall!" << endl;
+						cout.precision(numeric_limits< double >::digits10+1);
+						cout << " lev0 bidRank size " << learnersRanked[0].size() << " [bid,esize,refs,numFeatures,gtime,aGtime,id,--]";
+						for(set<learner*, LearnerBidLexicalCompare> :: iterator it = learnersRanked[0].begin(); it != learnersRanked[0].end();++it)
+						{
+							cout << " [" << (*it)->key() << ",";
+							cout << (*it)->esize() << ",";
+							cout << (*it)->refs() << ",";
+							cout << (*it)->numFeatures()<< ",";
+							cout << (*it)->gtime() << ",";
+							cout << (*it)->ancestralGtime() << ",";
+							cout << (*it)->id() << ",";
+							cout << (*it)->lastCompareFactor() << "]";
+						}
+						cout << endl;
+#endif
+						//behaviourSequence.push_back((double)((currentAction*-1)-1)); //actions are represented as negatives
+						behaviourSequence.push_back(-1); //go action
+						getDirectedState(currentState,selectedDirectedState,currentAction);//sensor readings for the direction chosen
+						mspacmanDiscretizeState(selectedDirectedState, sbbEval.stateDiscretizationSteps());//only need the last 5!
+						behaviourSequence.insert(behaviourSequence.end(),selectedDirectedState.begin(),selectedDirectedState.end());
+
+						mspacmanGameServer.send("act", "i", currentAction);
+						prevAction = currentAction;
+						//wait for new state from server (newState must be updated in state_handler)
+						while (newState.load() == false && episodeEnd.load() < 1){ usleep(1000);} newState.store(false);
+					}
+					timeGenTotalInGame += (time(NULL) - timeStartGame);
+					episodeEnd.store(0);
+					int start = min((1+sbbEval.dimBehavioural())*MAX_BEHAVIOUR_STEPS,(int)behaviourSequence.size());
+					for (size_t b = behaviourSequence.size()-start; b < behaviourSequence.size(); b++)
+						tmpBehaviourSequence.push_back(behaviourSequence[b]);
+					if (usePoints) sbbEval.setOutcome(teams[i_t],points[i_p],tmpBehaviourSequence, rewards, phase, t);
+					else sbbEval.setOutcome(teams[i_t],tmpBehaviourSequence, rewards, phase, t);
+					behaviourSequence.clear();
+					tmpBehaviourSequence.clear();
+					//if (hostToReplay < 0) sbbEval.getNextTeam();
+					if (visual) cout << "gameScore " << rewards[0] << endl;
+				}
+			}
+		}
+	}
+	cout << "mspacmanSBBHAgent::runEval t " << t << " l " << level << " numProfilePoints " << sbbEval.numProfilePoints() << " newProfilePoints " << newProfilePoints << " evalSize " << sbbEval.evaluationVectorSize() << endl;
+}
+/***********************************************************************************************************************/
+int main (int argc, char* argv[])
+{
+	cout.precision(numeric_limits< double >::digits10+1);
+
+	ifstream ifs;
+	ofstream ofs;
+	stringstream ss;
+
+	// Command-line parameters
+	bool checkpoint = false;
+	int checkpointInMode = -1;
+	int hostFitnessMode = 1;
+	int hostToReplay = -1;
+	int levelPickup = -1;
+	int levelStart = 0;
+	int phase = _TRAIN_PHASE;
+	int port = -1;
+	bool replay = false;
+	bool startNewLevel = false;
+	int statMod = -1;
+	int tPickup = -1;
+	int tStart = 0;
+	bool usePoints = false;
+	bool visual = false;
+
+	// read in all the command options and change the associated variables
+	// assume every two values supplied at prompt, form a duo
+	char * str;
+	for( int i = 1 ; i < argc ; i = i + 1  )
+	{
+		if( argv[i][0] == '-' && strlen( argv[i] ) > 1)
+		{
+			switch( argv[i][1] )
+			{
+				case 'C':
+					str   = &argv[i+1][0];
+					checkpoint = true;
+					checkpointInMode = Parse::parseFirstInt( &str );
+					break;
+				case 'f':
+					str   = &argv[i+1][0];
+					hostFitnessMode = Parse::parseFirstInt( &str );
+					break;
+				case 'H':
+					startNewLevel = true;
+					break;
+				case 'l':
+					str   = &argv[i+1][0];
+					levelStart = Parse::parseFirstInt( &str );
+					break;
+				case 'L':
+					str   = &argv[i+1][0];
+					levelPickup = Parse::parseFirstInt( &str );
+					break;
+				case 'O':
+					str   = &argv[i+1][0];
+					statMod = Parse::parseFirstInt( &str );
+					break;
+				case 'P':
+					str   = &argv[i+1][0];
+					usePoints = true;
+					break;
+				case 'R':
+					str   = &argv[i+1][0];
+					replay = true;
+					hostToReplay = Parse::parseFirstInt( &str );
+					break;
+				case 's':
+					str   = &argv[i+1][0];
+					port = Parse::parseFirstInt( &str );
+					break;
+				case 't':
+					str   = &argv[i+1][0];
+					tStart = Parse::parseFirstInt( &str );
+					break;
+				case 'T':
+					str   = &argv[i+1][0];
+					tPickup = Parse::parseFirstInt( &str );
+					break;
+				case 'V':
+					str   = &argv[i+1][0];
+					visual = true;
+					break;
+				case 'h':
+					cout << "Command Line Options:" << endl;
+					cout << "-C <mode to read checkpoint from> (default:off, requires -T and -L)" << endl;
+					cout << "Note on starting from checkpoint: if starting a new level, set -t <generation to start from in previous level (usually last gen)>" << "and -l <previous level>" << endl;
+					cout << "-f <hostFitnessMode>" << endl;
+					cout << "-H (invoke hierarchy imediately after reading in checkpoint)" << endl;
+					cout << "-l <level> (what level to start from OR playback policy is from)" << endl;
+					cout << "-L <pickup level> (default:0, requires -T and checkpoint file!)" << endl;
+					cout << "-O <statMod>" << endl;
+					cout << "-P (use points)" << endl;
+					cout << "-R <hostIdToReplay> (defualt:off)" << endl;
+					cout << "-t <t> (what generation to start from OR playback policy is from)" << endl;
+					cout << "-T <pickup generation> (default:1, requires -L and checkpoint file!)" << endl;
+					cout << "-V (visual)" << endl;
+					exit(0);
+					break;
+				default:
+					break;
+			}
+		}
+	}
+	cout << "mspacmanSBBHPAgent parameters:" << endl;
+	cout << "chechkpoint " << checkpoint << endl;
+	cout << "checkPointInMode " << checkpointInMode << endl;
+	cout << "hostFitnessMode " << hostFitnessMode << endl;
+	cout << "startNewLevel " << startNewLevel << endl;
+	cout << "levelStart " << levelStart << endl;
+	cout << "levelPickup " << levelPickup << endl;
+	cout << "statMod " << statMod << endl;
+	cout << "usePoints" << usePoints << endl;
+	cout << "replay " << replay << endl;
+	cout << "hostToReplay " << hostToReplay << endl;
+	cout << "port " << port << endl;
+	cout << "tStart " << tStart << endl;
+	cout << "tPickup " << tPickup << endl;
+	cout << "visual " << visual << endl;
+
+	sbbHP sbbMain;
+	bool initialize = true;
+
+	//timing
+	int timeGenSec0;
+	int timeGenSec1;
+	int timeTotalInGame;
+	int timeTemp;
+	int timeGen;
+	int timeSel;
+	int timeCleanup;
+	//osc stuff
+	lo::Address mspacmanGameServer("localhost", port);
+	lo::Address mspacmanPointServer("localhost", port+2);
+	lo::ServerThread st(port+1);
+	if (!st.is_valid()) {
+		std::cout << "Nope." << std::endl;
+		return 1;
+	}
+	st.add_method("state", NULL, state_handler, NULL);
+	st.add_method("end", NULL, end_handler, NULL);
+
+	//SBB Parameter Setup
+	sbbMain.id(-1);
+	sbbMain.seed(port);
+	sbbMain.dimPoint(POINT_DIM);
+	sbbMain.dimBehavioural(SBB_DIM);
+	sbbMain.hostFitnessMode(hostFitnessMode);
+	sbbMain.setParams();
+	sbbMain.numAtomicActions(2); //Binary action, yes or no for direction
+	sbbMain.numStoredOutcomesPerHost(_TRAIN_PHASE,HUGE_VAL);
+	sbbMain.maxTrainingReward(HUGE_VAL);
+	init(currentState,neighbours,95);
+	st.start();
+
+	//loading populations from a chackpoint file
+	if (checkpoint == true)
+	{
+		prepareInFile(ifs,"checkpoints","cp",levelPickup,tPickup,sbbMain.id(),sbbMain.seed(),checkpointInMode);
+		sbbMain.readCheckpoint(checkpointInMode,ifs); ifs.close();
+
+		///////////////////////////////////////////////////////////////
+		//sbbMain.scaleTeamAndLearnerIds(1000000);
+		//sbbMain.seed(sbbMain.seed()+1000);
+		//prepareOutFile(ofs,"checkpoints","cp",levelPickup,tPickup,sbbMain.id(),sbbMain.seed(),checkpointInMode);
+		//sbbMain.writeCheckpoint(checkpointInMode,ofs); ofs.close();
+		//return 0;
+
+
+		//////////////////////////////////////////////////////////////
+		//sbbMain.recalculateLearnerRefs();
+		//sbbMain.cleanup(tPickup,levelPickup,false);// don't prune learners because they active/inactive is not accurate
+		//prepareOutFile(ofs,"checkpoints","cp",levelPickup,tPickup,sbbMain.id(),sbbMain.seed(),checkpointInMode);
+		//sbbMain.writeCheckpoint(checkpointInMode,ofs); ofs.close();
+		//return 0;
+
+		if (replay == true){
+			runEval(mspacmanGameServer, mspacmanPointServer, sbbMain,port,tPickup,levelPickup,_TRAIN_PHASE,false,visual,timeTotalInGame,hostToReplay);
+			sbbMain.printTeamInfo(tPickup,levelPickup,_TRAIN_PHASE);
+			return 0;
+		}
+
+		initialize = false; //can skip initialization for current level
+		//starting a new level
+		if (startNewLevel)
+		{
+			levelStart++;
+			tStart = 0;
+			initialize = true; //will need to initialize for the next level
+		}
+	}
+	//hierarchical training loop
+	for (int level = levelStart; level < sbbMain.numLevels(); level++)
+	{
+		if (initialize == true){
+			timeTemp = time(NULL);
+			sbbMain.initTeams(level);
+			cout << "sbb::initTeamsTime sec " << time(NULL)-timeTemp << endl;
+			timeTemp = time(NULL);
+			if (usePoints) sbbMain.initPoints();
+			cout << "sbb::initPointsTime sec " << time(NULL)-timeTemp << endl;
+
+			tStart = 0;
+		}
+		phase = _TRAIN_PHASE;
+		for (int t = tStart+1; t <= sbbMain.t(); t++)
+		{
+			timeGenSec0 = time(NULL);
+			timeTotalInGame = 0;
+			timeTemp = time(NULL); sbbMain.genTeams(t, level);  if (usePoints) sbbMain.genPoints(t); timeGen = time(NULL) - timeTemp; //replacement
+			sbbMain.printPointInfo(t,level,-1);
+			//sbbMain.printHostGraphsDFS((long)level, (long)t);
+			runEval(mspacmanGameServer,mspacmanPointServer,sbbMain,port,t,level,phase,usePoints,visual,timeTotalInGame,-1);
+			sbbMain.hostDistanceMode(drand48() > 0.5 ? 1 : 0); //diversity switching
+			mspacmanGameServer.send("sleep");
+			timeTemp=time(NULL);sbbMain.selTeams(t, level); if (usePoints) sbbMain.selPoints(t); timeSel=time(NULL)-timeTemp; //selection
+			mspacmanGameServer.send("wake");
+			timeTemp=time(NULL);sbbMain.cleanup(t, level,true);timeCleanup=time(NULL)-timeTemp;
+			prepareOutFile(ofs,"checkpoints","cp",level,t,sbbMain.id(),sbbMain.seed(),_TRAIN_PHASE);
+			sbbMain.writeCheckpoint(_TRAIN_PHASE, ofs); ofs.close();
+			sbbMain.printTeamInfo(t,level,phase);
+			if (usePoints) sbbMain.printPointInfo(t,level,phase);
+			timeGenSec1 = time(NULL);
+			cout << "sbbHP::genTime t " << t  << " sec " << timeGenSec1 - timeGenSec0 << " (" << timeTotalInGame << " InGame, ";
+			cout << timeGen << " genTeams, " << timeSel << " selTeams, " << timeCleanup << " cleanup)" << endl;
+			if (t == tStart+1 || t % statMod == 0 || t == sbbMain.t())
+				sbbMain.stats(t, level);
+		}
+		initialize = true;
+	}
+	cout << "Goodbye cruel world." << endl;
+	mspacmanGameServer.send("exit", "");
+	return 0;
+}
+

@@ -1,0 +1,170 @@
+package pacman;
+
+import java.awt.Color;
+
+import java.util.*;
+
+import pacman.game.Constants;
+import pacman.game.Game;
+import pacman.game.GameView;
+import pacman.game.Constants.*;
+import edu.utexas.cs.nn.tasks.mspacman.facades.*;
+import edu.utexas.cs.nn.tasks.mspacman.sensors.directional.VariableDirectionCountJunctionOptionsBlock;
+import edu.utexas.cs.nn.util.datastructures.ArrayUtil;
+import edu.utexas.cs.nn.tasks.mspacman.sensors.directional.counts.*;
+
+
+public class Sensors {
+
+	/**
+	 * The current setup will return a close approximation of the sensors used in: 
+	 * Jacob Schrum and Risto Miikkulainen, "Discovering Multimodal Behavior in 
+	 * Ms. Pac-Man through Evolution of Modular Neural Networks", IEEE Transactions 
+	 * on Computational Intelligence and AI in Games (2015). 
+	 *
+	 * There are 7 non-directed sensors plus 22 directed sensors for each of 4 directions,
+	 * for a total of (7 + (4 * 22)) = 95 sensors.
+	 */
+
+
+	final int NUM_SENSORS = 95;
+	final int MAX_DISTANCE = 200;
+	final int CLOSE_TO_TARGET_THRESHOLD = 10;
+	final double DOUBLE_DYNAMIC_RANGE = 50.0;
+	final double BOOL_INPUT_HIGH = 5.0;
+	final double BOOL_INPUT_LOW = -5.0;
+
+	public double[] read(Game game){
+		GameFacade gf = new GameFacade(game);
+		int currentLocation = gf.getPacmanCurrentNodeIndex();
+		int[] neighbours = gf.neighbors(currentLocation);
+		int numReadings = 0;
+		double[] sensorReadings = new double[NUM_SENSORS];
+
+		/* Common Undirected ***************************************/
+
+		//Proportion Power Pills
+		sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*(double)game.getNumberOfActivePowerPills() / (double)game.getNumberOfPowerPills(); 
+		
+		//Proportion Pills
+		sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*(double)game.getNumberOfActivePills() / (double)game.getNumberOfPills();
+
+		//Number of Edible Ghosts
+		int numEdibleGhosts = 0;
+		int totalLairTime = 0;
+		double remainingGhostEdibleTime = 0;
+		for (GHOST ghost : GHOST.values()) {
+			if (game.isGhostEdible(ghost))
+				remainingGhostEdibleTime += game.getGhostEdibleTime(ghost);
+			totalLairTime += game.getGhostLairTime(ghost);
+		}
+		sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*(double)game.getNumEdibleGhosts() / (double)Constants.NUM_GHOSTS;
+
+		//Remaining Ghost Edible Time
+		sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*((double)remainingGhostEdibleTime / (double)Constants.NUM_GHOSTS)/(MAX_DISTANCE/2);
+		
+		//Any Ghosts Edible?
+		sensorReadings[numReadings++] = game.getNumEdibleGhosts() > 0 ? BOOL_INPUT_HIGH : BOOL_INPUT_LOW;   
+
+		//All Threat Ghosts Present?
+		sensorReadings[numReadings++] = !(totalLairTime > 0) && (numEdibleGhosts == 0) ? BOOL_INPUT_HIGH : BOOL_INPUT_LOW; 
+
+		//Close to Power Pill?
+		int closestPowerPillDistance = Integer.MAX_VALUE;
+		int[] activePowerPills=game.getActivePowerPillsIndices();
+		for(int i = 0; i < activePowerPills.length; i++)
+			closestPowerPillDistance = Math.min(closestPowerPillDistance, game.getShortestPathDistance(currentLocation,activePowerPills[i]));
+		sensorReadings[numReadings++] = closestPowerPillDistance < CLOSE_TO_TARGET_THRESHOLD ? BOOL_INPUT_HIGH : BOOL_INPUT_LOW;
+
+		/* Directed **********************************************/
+
+		for (int dir = 0; dir < 4; dir++){
+			
+//			Color colour;
+//			switch(dir){
+//			case 0: colour = Color.RED; break;
+//			case 1: colour = Color.GREEN; break;
+//			case 2: colour = Color.BLUE; break;
+//			case 3: colour = Color.YELLOW; break;
+//			default: colour = Color.RED; break;
+//			}
+
+			/* Common Directed ***************************************/
+
+			//Distance to closest regular pill in given direction
+			if (neighbours[dir] != -1){
+				sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*(double)gf.getTargetInDir(gf.getPacmanCurrentNodeIndex(), gf.getActivePillsIndices(), dir).t2.length/MAX_DISTANCE;	
+				//GameView.addPoints(game, Color.YELLOW,gf.getTargetInDir(gf.getPacmanCurrentNodeIndex(), gf.getActivePillsIndices(), dir).t2);
+			} else sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE;
+			
+
+			//Distance to closest power pill in given direction
+			if (neighbours[dir] != -1 && gf.getActivePowerPillsIndices().length > 0){
+				sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*(double)gf.getTargetInDir(gf.getPacmanCurrentNodeIndex(), gf.getActivePowerPillsIndices(), dir).t2.length/MAX_DISTANCE;
+				//GameView.addPoints(game, Color.YELLOW,gf.getTargetInDir(gf.getPacmanCurrentNodeIndex(), gf.getActivePowerPillsIndices(), dir).t2);
+			} else sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE;
+			
+
+			//Distance to closest maze junction in given direction
+			if (neighbours[dir] != -1){
+				sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE*(double)gf.getTargetInDir(gf.getPacmanCurrentNodeIndex(), gf.getJunctionIndices(), dir).t2.length/MAX_DISTANCE;
+				//GameView.addPoints(game, Color.YELLOW,gf.getTargetInDir(gf.getPacmanCurrentNodeIndex(), gf.getJunctionIndices(), dir).t2);
+			} else sensorReadings[numReadings++] = DOUBLE_DYNAMIC_RANGE;
+
+			//Conflict Ghost Sensors
+			int[] junctions = game.getJunctionIndices();
+			ArrayList<GhostSensorReading> ghostSensors = new ArrayList<GhostSensorReading>();
+
+			for (GHOST ghost : GHOST.values()) {
+				int[] path;
+				double distToGhost = DOUBLE_DYNAMIC_RANGE;
+				double ghostApproachingPacman = BOOL_INPUT_LOW;
+				double pathToGhostContainsJunction = BOOL_INPUT_HIGH;
+				double ghostEdible = BOOL_INPUT_LOW;
+				
+				if (neighbours[dir] != -1 && game.getGhostLairTime(ghost) == 0){
+					 path = gf.getDirectionalPath(currentLocation, game.getGhostCurrentNodeIndex(ghost),dir);
+					
+					 distToGhost = DOUBLE_DYNAMIC_RANGE*(double)path.length/MAX_DISTANCE;
+					
+					 ghostApproachingPacman = gf.ghostApproachingPacman(GameFacade.ghostToIndex(ghost))? BOOL_INPUT_HIGH : BOOL_INPUT_LOW;
+					
+						pathToGhostContainsJunction = BOOL_INPUT_LOW;
+							for (int j = 0; j < junctions.length && pathToGhostContainsJunction < BOOL_INPUT_HIGH; j++)
+								if (ArrayUtil.countOccurrences(junctions[j], path) > 0)
+									pathToGhostContainsJunction = BOOL_INPUT_HIGH;	
+			
+					ghostEdible = game.isGhostEdible(ghost) ? BOOL_INPUT_HIGH : BOOL_INPUT_LOW;
+				}
+
+				ghostSensors.add(new GhostSensorReading(ghost, distToGhost, ghostApproachingPacman, pathToGhostContainsJunction, ghostEdible));
+			}
+			Collections.sort(ghostSensors);
+
+//			if (neighbours[dir] != -1 && game.getGhostLairTime(ghostSensors.get(0).ghost) == 0){
+//				//if ( ghostSensors.get(0).ghostApproaching > 0) colour = Color.CYAN;
+//				//if (ghostSensors.get(0).pathToGhostContainsJunction > 0) colour = Color.ORANGE;
+//				//if (ghostSensors.get(0).edible > 0) colour = Color.PINK;
+//				GameView.addPoints(game, colour,gf.getDirectionalPath(currentLocation, game.getGhostCurrentNodeIndex(ghostSensors.get(0).ghost),dir));
+//			}
+
+			for (int i = 0; i < ghostSensors.size(); i++){
+				sensorReadings[numReadings++] = ghostSensors.get(i).distance;
+				sensorReadings[numReadings++] = ghostSensors.get(i).approaching;
+				sensorReadings[numReadings++] = ghostSensors.get(i).pathToGhostContainsJunction;
+				sensorReadings[numReadings++] = ghostSensors.get(i).edible;
+			}
+
+			//Number of pills on the path in the given direction that has the most pills
+			VariableDirectionCountAllPillsInKStepsBlock pill_block = new VariableDirectionCountAllPillsInKStepsBlock(dir,30);
+			sensorReadings[numReadings++] = neighbours[dir] != -1 ? DOUBLE_DYNAMIC_RANGE*pill_block.getValue(gf) : 0;
+			//Number of junctions on the path in the given direction that has the most junctions
+			VariableDirectionKStepJunctionCountBlock j_block = new VariableDirectionKStepJunctionCountBlock(dir);
+			sensorReadings[numReadings++] = neighbours[dir] != -1 ? DOUBLE_DYNAMIC_RANGE*j_block.getValue(gf) : 0;
+			//OFNJ
+			VariableDirectionCountJunctionOptionsBlock ofnj_block = new VariableDirectionCountJunctionOptionsBlock(dir);
+			sensorReadings[numReadings++] = neighbours[dir] != -1 ? DOUBLE_DYNAMIC_RANGE*ofnj_block.getValue(gf) : 0;	
+		}
+		return sensorReadings;
+	}
+}
