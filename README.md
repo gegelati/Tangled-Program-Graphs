@@ -1,4 +1,5 @@
 This c++ code distribution is in active development and intended for research purposes only. 
+
 For more information contact stephen.kelly@dal.ca
 
 The following provides a quick start for Linux. See code and scripts for further documentation. 
@@ -20,8 +21,14 @@ COMPILING
 cd $TPGPATH
 scons --opt
 
-RUNNING AN EXPERIMENT
+RUNNING A SINGLE-TASK EXPERIMENT
 
 cd runALE
 ./tpg-runner.sh ms_pacman 7
 
+
+RUNNING A MULTI-TASK EXPERIMENT
+
+cd runALEMTRL
+
+./tpg-runner.sh roms-3-02.txt 7
