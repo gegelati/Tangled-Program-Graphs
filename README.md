@@ -15,11 +15,13 @@ export TPGPATH=$(pwd)
 COMPILING
 
 cd $TPGPATH
+
 scons --opt
 
 RUNNING A SINGLE-TASK EXPERIMENT
 
 cd runALE
+
 ./tpg-runner.sh ms_pacman 7
 
 
