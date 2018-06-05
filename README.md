@@ -4,11 +4,19 @@ DEPENDENCIES (outside what is like already installed)
 
 scons, g++, libbz2-dev
 
+The Arcade Learning Environment (ALE) https://github.com/mgbellemare/Arcade-Learning-Environment
+
 SETTING UP THE ENVIRONEMNT
 
 Navigate to the base folder for this distrobution and type:
 
     export TPGPATH=$(pwd)
+
+The Sconscripts in each subdiretory of src/cpp should be modified to reference the actual location of the ALE
+
+For linking with the ALE, add something like the following to your login script:
+
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/PATH/TO/ALE
 
 COMPILING
 
