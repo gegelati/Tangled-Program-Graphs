@@ -28,7 +28,6 @@ class learner
       long _dim; /* Expected dimension of input feature vector. */
       int _esize; /* Size of program not counting structural introns identified by markIntrons(). */
       set < long > _features; /* Features indexed by non-introns in this learner, determined in markIntrons(). */
-      bool _frozen; /* If true, never modify this learner. */
       long _gtime; /* Time step at which generated. */
       long _id; /* Unique id of learner. */
       /* Mark structural introns (set to TRUE if NOT an intron).
@@ -84,8 +83,6 @@ class learner
       inline void dim(long d) { _dim = d; }
       inline int esize() { return _esize; } /* Not counting introns. */
       inline void features(set < long > &f) { f = _features; }
-      inline bool frozen() { return _frozen; }
-      inline void frozen(bool f) { _frozen = f; }
       inline void getBid(vector <instruction *> &b) { b = _bid;}
       inline void getProfile(vector < double > &p) { p = _profile; }
       inline long gtime() { return _gtime; }

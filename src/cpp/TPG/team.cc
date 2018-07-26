@@ -2,6 +2,7 @@
 #include <limits>
 #include "team.h"
 long team::_count = 0;
+
 /********************************************************************************************/
 bool team::addLearner(learner *lr)
 {
@@ -39,6 +40,7 @@ void team::clearRegisters(map <long, team*> &teamMap, set <team*> &visitedTeams)
    }
 }
 
+/********************************************************************************************/
 ostream & operator<<(ostream &os, 
       const team &tm)
 {
@@ -74,7 +76,6 @@ ostream & operator<<(ostream &os,
       //uintptr_t ptr_val;// = uintptr_t(*leiter);
       os << " " << (*leiter)->id();// << "(" << (long long)(*leiter) << ")";
    }
-
 
    os << " size";
    for(leiter = tm._members.begin(); leiter != tm._members.end(); leiter++)
@@ -117,62 +118,7 @@ ostream & operator<<(ostream &os,
    for(seiter = features.begin(); seiter != features.end(); seiter++)
       os << " " << *seiter;
 
-   ////output the same info for active members only
-   //os << " idA";
-   //for(leiter = tm._active.begin(); leiter != tm._active.end(); leiter++)
-   //   os << " " << (*leiter)->id();
-
-   //os << " sizeA";
-   //for(leiter = tm._active.begin(); leiter != tm._active.end(); leiter++)
-   //   os << " " << (*leiter)->size();
-
-   //os << " esizeA";
-   //for(leiter = tm._active.begin(); leiter != tm._active.end(); leiter++)
-   //   os << " " << (*leiter)->esize();
-
-   //os << " gtimeA";
-   //for(leiter = tm._active.begin(); leiter != tm._active.end(); leiter++)
-   //   os << " " << (*leiter)->gtime();
-
-   //os << " refsA";
-   //for(leiter = tm._active.begin(); leiter != tm._active.end(); leiter++)
-   //   os << " " << (*leiter)->refs();
-
-   //os << " actionA";
-   //for(leiter = tm._active.begin(); leiter != tm._active.end(); leiter++)
-   //   os << " " << (*leiter)->action();
-
-   //os << " numfeatA";
-   //for(leiter = tm._active.begin(); leiter != tm._active.end(); leiter++)
-   //   os << " " << (*leiter)->numFeatures();
-
-   //os << " lfeatA";
-   //for(leiter = tm._active.begin(); leiter != tm._active.end(); leiter++)
-   //{
-   //   os << " lactA " << (*leiter)->action() << " lfidA";
-   //   features.clear();
-   //   (*leiter)->features(features);
-   //   for(seiter = features.begin(); seiter != features.end(); seiter++)
-   //      os << " " << *seiter;
-   //}
-
-   //features.clear();
-   //tm.features(features);
-
-   //os << " featidA";
-   //for(seiter = features.begin(); seiter != features.end(); seiter++)
-   //   os << " " << *seiter;
-
    return os;
-}
-
-/********************************************************************************************/
-long team::collectiveAge(long t){
-   set < learner * > :: iterator leiter;
-   long age = 0;
-   for(leiter = _members.begin(); leiter != _members.end(); leiter++)
-      age+= t - (*leiter)->gtime();
-   return age;
 }
 
 /********************************************************************************************/
@@ -184,17 +130,6 @@ void team::deleteOutcome(point *pt)
       die(__FILE__, __FUNCTION__, __LINE__, "should not delete outcome that is not set");
    delete ouiter->first;
    _outcomes.erase(ouiter);
-}
-
-/********************************************************************************************/
-void team::deleteMargin(point *pt)
-{
-   map < point *, double > :: iterator maiter;
-
-   if((maiter = _margins.find(pt)) == _margins.end())
-      die(__FILE__, __FUNCTION__, __LINE__, "should not delete margin that is not set");
-
-   _margins.erase(maiter);
 }
 
 /********************************************************************************************/
@@ -266,6 +201,7 @@ double team::symbiontUtilityDistance(team * t){
 #endif
    return 1.0 - ((double)symIntersection / (double)symUnion);
 }
+
 /********************************************************************************************/
 //this version compares with a vector of Ids *assumed sorted*
 double team::symbiontUtilityDistance(vector < long > & compareWithThese){
@@ -380,6 +316,7 @@ int team::getAction(vector < double > &state,
    /* Repeat at the chosen team in the level below. */
    return teamMap[teamIdToFollow]->getAction(state, teamMap, updateActive, learnersRanked, winningLearners, decisionInstructions, decisionFeatures, visitedTeams, verbose);
 }
+
 /********************************************************************************************/
 void team::getAllNodes(map <long, team*> &teamMap, set <team*> &visitedTeams, set <learner*> &learners)
 {
@@ -394,6 +331,7 @@ void team::getAllNodes(map <long, team*> &teamMap, set <team*> &visitedTeams, se
          teamMap[(*leiter)->action()]->getAllNodes(teamMap, visitedTeams, learners);
    }
 }
+
 /********************************************************************************************/
 double team::policyFeatureDistance(team * t, bool active){
    vector<int> featureIntersection;
@@ -500,20 +438,6 @@ void team::getBehaviourSequence(vector<int>&s, int phase){
 }
 
 /********************************************************************************************/
-bool team::getMargin(point *pt,
-      double *margin)
-{
-   map < point *, double > :: iterator maiter;
-
-   if((maiter = _margins.find(pt)) == _margins.end())
-      return false;
-
-   *margin = maiter->second;
-
-   return true;
-}
-
-/********************************************************************************************/
 double team::getMaxOutcome(int phase, int fitMode, int auxDouble, bool skipZeros)
 {
    double maxOut = 0;
@@ -587,6 +511,7 @@ bool team::getOutcome(point *pt,
 
    return true;
 }
+
 /********************************************************************************************/
 bool team::hasOutcome(point *pt)
 {

@@ -2,9 +2,7 @@
 
 use strict;
 
-#max (initial) team size
-my $omega = 5;
-
+my $omega = 5; #max (initial) team size
 #team mod probabilities
 my $pAtomic = 0.5;
 my $pmd = 0.7;
@@ -12,8 +10,7 @@ my $pma = 0.7;
 my $pmm = 0.2;
 my $pmn = 0.1;
 
-#max program size
-my $maxProgSize = 96;
+my $maxProgSize = 96; #max program size
 #program mod probabilities
 my $pBidMutate = 1.0;
 my $pBidSwap = 1.0;
@@ -21,8 +18,8 @@ my $pBidDelete = 0.5;
 my $pBidAdd = 0.5;
 
 #GA parameters
-my $Msize = 90; #root population size
-my $Mgap = 0.5; #fraction of Msize
+my $Rsize = 90; #root population size
+my $Rgap = 0.5; #fraction of Rsize
 my $episodesPerGeneration = 5;
 my $numStoredOutcomesPerHost_TRAIN = 5; #per task
 my $numStoredOutcomesPerHost_VALIDATION = 10;
@@ -31,17 +28,10 @@ my $numProfilePoints = 50;
 my $pAddProfilePoint = 0.0005;
 my $paretoEpsilonTeam = 0.001;
 
+#Print stats every statMod generations
 my $statMod = 5;
 
-# SBB Diversity #############################################################
-my $normalizeFitness = 0;
-my $diversityMode = 0; # 0) normalized fitness only; 3) linear combination, 7) paretoScoreRanking
-my $stateDiscretizationSteps = 3;
-my $knnNovelty = 15;
-
-# required for linear combination of fitness and novelty only
-my $pNoveltyGeno = 0.2;
-my $pNoveltyPheno = 0.4;
+my $diversityMode = 0; 
 
 ###################################################################################################
 if(scalar(@ARGV) != 3)
@@ -81,8 +71,8 @@ for($run = 0; $run < $numRuns; $run++)
    print ARG "pBidDelete $pBidDelete\n";
    print ARG "pBidAdd $pBidAdd\n";
 
-   print ARG "Msize $Msize\n";
-   print ARG "Mgap $Mgap\n";
+   print ARG "Rsize $Rsize\n";
+   print ARG "Rgap $Rgap\n";
    print ARG "episodesPerGeneration $episodesPerGeneration\n";
    print ARG "numStoredOutcomesPerHost_TRAIN $numStoredOutcomesPerHost_TRAIN\n";
    print ARG "numStoredOutcomesPerHost_VALIDATION $numStoredOutcomesPerHost_VALIDATION\n";
@@ -91,13 +81,7 @@ for($run = 0; $run < $numRuns; $run++)
    print ARG "pAddProfilePoint $pAddProfilePoint\n";
    print ARG "paretoEpsilonTeam $paretoEpsilonTeam\n";
 
-   print ARG "normalizeFitness $normalizeFitness\n";
    print ARG "diversityMode $diversityMode\n";
-   print ARG "stateDiscretizationSteps $stateDiscretizationSteps\n";
-   print ARG "knnNovelty $knnNovelty\n";
-  
-   print ARG "pNoveltyGeno $pNoveltyGeno\n";
-   print ARG "pNoveltyPheno $pNoveltyPheno\n";
 
    close(ARG);
 }

@@ -1,3 +1,3 @@
-battle_zone.bin:26300:2360
-bowling.bin:42:23.1
-centipede.bin:8309:2090.9
+battle_zone.bin
+bowling.bin
+centipede.bin

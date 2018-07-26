@@ -46,7 +46,6 @@ long learner::_count = 0;
 /********************************************************************************************/
 double learner::bid(double *feature)
 {
-	//return 1 / (1 + exp(-run(_bid, feature, REG)));
 	return run(_bid, feature);
 }
 
@@ -70,7 +69,6 @@ learner::learner(long gtime, long action, int maxProgSize, long dim, long id){
 	_action = action;
 	_ancestral_gtime = gtime;
 	_dim = dim;
-	_frozen = false;
 	_gtime = gtime;
 	_id = id;
 	_key = 0;
@@ -100,7 +98,6 @@ learner::learner(long gtime, learner &plr, long id){
 	_action = plr.action();
 	_ancestral_gtime = plr.ancestralGtime();
 	_dim = plr._dim;
-	_frozen = plr.frozen();
 	_gtime = gtime;
 	_id = id;
 	_key = 0;
@@ -124,7 +121,6 @@ learner::learner(long gtime, long ancestral_gtime, long action, long dim, long i
 	_ancestral_gtime = ancestral_gtime;
 	_bid = bid;
 	_dim= dim;
-	_frozen = false;
 	_gtime = gtime;
 	_id = id;
 	_key = 0;

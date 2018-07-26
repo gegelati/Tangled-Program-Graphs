@@ -60,6 +60,7 @@ point::point(long gtime,
    for(size_t i = 0; i < auxDoubles.size(); i++)
       _auxDoubles.push_back(auxDoubles[i]);
 }
+
 /********************************************************************************************/
 point::point(long gtime,
       int phase,
@@ -81,6 +82,7 @@ point::point(long gtime,
    for(size_t i = 0; i < auxDoubles.size(); i++)
       _auxDoubles.push_back(auxDoubles[i]);
 }
+
 /********************************************************************************************/
 point::point(long gtime,
       int phase,
@@ -100,12 +102,14 @@ point::point(long gtime,
    //for(size_t i = 0; i < MAX_AUX_DOUBLE; i++)
    //   _auxDoubles.push_back(0.0);
 }
+
 /********************************************************************************************/
 void point::setBehaviouralState(vector < double > &bState){
    _behaviouralState.clear();
    for(int i = 0; i < bState.size(); i++)
       _behaviouralState.push_back(bState[i]);
 }
+
 /********************************************************************************************/
 ostream & operator<<(ostream &os, const point &pt)
 {

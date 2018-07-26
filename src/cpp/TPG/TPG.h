@@ -18,7 +18,6 @@ class TPG
       inline void dimBehavioural(int dim){ _dimB = dim; }
       inline int diversityMode(){ return _diversityMode; }
       inline void diversityMode(int i){ _diversityMode = i; }
-      inline double eliteTeamMeanOutcome(int fitMode, int whichEliteTeam){ return _eliteTeams[whichEliteTeam]->getMeanOutcome(_TRAIN_PHASE,_MEAN_OUT_PROP,fitMode,fitMode,false); }
       inline int episodesPerGeneration() { return _episodesPerGeneration; }
       inline void episodesPerGeneration(int e) { _episodesPerGeneration = e; }
       inline int hostDistanceMode(){ return _distMode; }
@@ -46,17 +45,7 @@ class TPG
       inline void rangeBehavioural(double l, double h, bool d){_sensorRangeLow = l; _sensorRangeHigh = h; _sensorsDiscrete = d;}
       inline double rangeBehavioural(int minmax) { return (minmax == 0 ? _sensorRangeLow : _sensorRangeHigh); }
       inline long seed() const { return _seed; }
-      inline void seed(long seed) {
-         _seed = seed;
-         srand48(_seed);
-         //readCheckpoint would find the highest team_count and learner_count and start there
-         team_count = 1000*seed;
-         learner_count = 1000*seed;
-         point_count = 1000*seed;
-      }
       inline void setupTeamCount(int s) { team_count = 1000*s; }
-      inline int stateDiscretizationSteps() { return _stateDiscretizationSteps; }
-      inline int tCull(){ return _tCull; }
       inline bool verbose(){ return _verbose; }
       inline void verbose(bool v){ _verbose = v; }
 
@@ -72,7 +61,6 @@ class TPG
             delete p;
          }
       }
-      void adjustIds(int);
       void checkRefCounts(const char *);
       void cleanup (long,bool,long &);
       void cleanup (long t,bool prune){ long dummy; cleanup(t,prune,dummy); }
@@ -87,8 +75,8 @@ class TPG
       }
       inline int currentChampId(){ return currentChampion->id();}
       inline int currentChampNumOutcomes(int phase){ return currentChampion->numOutcomes(phase,true);}
-      void debugRefs(long);
-      void diversityMode0(long);
+      void countRefs(long);
+      inline double eliteTeamMeanOutcome(int fitMode, int whichEliteTeam){ return _eliteTeams[whichEliteTeam]->getMeanOutcome(_TRAIN_PHASE,_MEAN_OUT_PROP,fitMode,fitMode,false); }
       void finalize();
       void genTeams(long);
       void genTeams(long, team *, team **, vector < learner * > &);
@@ -130,15 +118,12 @@ class TPG
       void initTeams();
       inline int lSize(){ return _L.size(); }
       inline int mSize(){ return _M.size(); }
-      void paretoRanking(long, int phase = 0);
       inline int numAtomicActions()
       {  return _numActions; }
       inline void numAtomicActions(int a) { _numActions = a; }
       void policyFeatures(int,set<long> &, bool);
       inline long pointCount(){ return point_count; }
       inline void pointCount(long pc){ point_count = pc; }
-      void printEvaluationVector(long t);
-      void printHostGraphs();
       void printHostGraphsDFS(long, bool, int);
       void printLearnerInfo(long);
       void printTeamInfo(long, int, bool, long team=-1);
@@ -152,9 +137,8 @@ class TPG
          for(teiter = _M.begin(); teiter != _M.end(); teiter++)
             (*teiter)->resetOutcomes(phase);
       }
-      void scaleTeamAndLearnerIds(long);
       void selTeams(long);
-      void setEliteTeams(long, long, const vector <int> &, vector <double> &, vector <double> &, bool);
+      void setEliteTeams(long, long, const vector <int> &, bool);
       /* Team tm will store a clone of the point with the same id. */
       void setOutcome(team* tm, vector < double > &bState, vector<double> &rewards, int phase, long gtime){
          tm->setOutcome(new point(gtime, phase, point_count++, bState, rewards, _fitMode) , rewards[_fitMode], _numStoredOutcomesPerHost[phase]);
@@ -169,8 +153,7 @@ class TPG
       }
       void setParams(point * (*initPoint)(long,long,int));
       int setRoots();
-      inline long simTime() { return _simTime; }
-      void splitLevelPrep();
+      void teamTaskRank(int, const vector <int> &);
       void testSymbiontUtilityDistance();
       void updateLearnerProfiles();
       void writeCheckpoint(long, int, bool);
@@ -184,34 +167,24 @@ class TPG
       set < team *, teamIdComp > _M; /* Teams */
       map < long, team*> _teamMap;
       set < learner * > _L; /* Learners. */
-
-      //vector < double > bid1; /* First highest bid, reporting only */
-      //vector < double > bid2; /* Second highest bid, reporting only */
       team * currentChampion;
-      double _compatibilityThresholdGeno;
-      double _compatibilityThresholdIncrement;
-      double _compatibilityThresholdPheno;
       int _dimB;
       int _diversityMode;
       long _episodesPerGeneration; /* How many games should each team get to play before calculating fit and performing selection. */
       int _distMode;
       vector < team * > _eliteTeams;
       int _fitMode;
-      //	void getDistinctions(set < point * > &, map < point *, vector < short > * > &);
       int _id;
-      int _keepawayStateCode;
-      int _knnNov;
       long learner_count;
       int _numPointAuxDouble;
       size_t _maxProgSize;
       long _mdom; /* Number of individuals pushed out of the population by younger individuals. */
-      double _Mgap; /* Team generation gap as percentage. */
+      double _Rgap; /* Team generation gap as percentage. */
       int _minOutcomesForNoveltyArchive;
       int    m_lastAction;
-      size_t _Msize; /* Team population size. */
+      size_t _Rsize; /* Team population size. */
       bool _normalizeFitness;
       int _numActions; /* Number of actions, actions 0, 1, ..., _numActions - 1 are assumed. */
-      int _numExpectedAdditionsToArchive;
       int _numFitMode;
       int _numProfilePoints;
       long _numStoredOutcomesPerHost[_NUM_PHASE];
@@ -231,16 +204,11 @@ class TPG
       double _pmd; /* Probability of learner deletion.*/
       double _pmm; /* Probability of learner mutation. */
       double _pmn; /* Probability of learner action mutation. */
-      double _pNoveltyGeno; //percentage of nov relative to fit in score
-      double _pNoveltyPheno; //percentage of nov relative to fit in score
       deque < point * > _profilePointsFIFO; /* Points used to build the learner profiles. */
       int _seed;
       bool _sensorsDiscrete;
       double _sensorRangeHigh;
       double _sensorRangeLow;
-      long _simTime; //simulator time
-      int _stateDiscretizationSteps;
-      int _tCull; /* what generation to test for restart. */
       long team_count;
       bool _verbose;
 };

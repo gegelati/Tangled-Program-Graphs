@@ -25,14 +25,6 @@ const vector < int > objectives = {0,1,2}; // one objective per rom
 using namespace std;
 
 /***********************************************************************************************************************/
-int numMTHighScore(vector<ALEInterface *> &alev, TPG &tpg, vector <double> &highScores){
-   int n = 0;
-   for (size_t i = 0; i < alev.size(); i++)
-      if (tpg.eliteTeamMeanOutcome(i,alev.size()) >= highScores[i]) n++;
-   return n;
-}
-
-/***********************************************************************************************************************/
 point * initUniformPointALE(long gtime, long id, int phase){
    vector < double > pState;
    vector < double > bState;
@@ -315,8 +307,6 @@ int main(int argc, char** argv) {
 
    //Multi-game ALE setup
    vector <ALEInterface *> alev;
-   vector < double > highScores;
-   vector < double > lowScores;
    ifstream ifs;
    ifs.open(rom, ios::in);
    if (!ifs.is_open() || ifs.fail()){
@@ -338,17 +328,8 @@ int main(int argc, char** argv) {
       alev.back()->setBool("sound", visual);
       char romBin[80]; sprintf(romBin, "%s/%s","roms",outcomeFields[0].c_str());
       cout << " " << outcomeFields[0];
-      char highScore[80]; sprintf(highScore, "%s",outcomeFields[1].c_str());
-      highScores.push_back(stringTodouble(highScore));
-      char lowScore[80]; sprintf(lowScore, "%s",outcomeFields[2].c_str());
-      lowScores.push_back(stringTodouble(lowScore));
       alev.back()->loadROM(romBin);//(Also resets the system for new settings to take effect.)
-      //ActionVect la = alev.back()->getMinimalActionSet();
-      //cout << "ale MinimalActionSet rom " << romBin << " size " << la.size()  << "|" << vecToStr(la) << endl;
-      //actionSet.insert(la.begin(), la.end());
    }
-   //ActionVect legal_actions(actionSet.begin(),actionSet.end());
-   //cout << "ale MinimalActionSetAll size " << legal_actions.size()  << "|" << vecToStr(legal_actions) << endl;
 
    cout << " alevSize " << alev.size() << endl;
    ActionVect legal_actions = alev[0]->getLegalActionSet();
@@ -402,7 +383,7 @@ int main(int argc, char** argv) {
       timeTemp = time(NULL); tpg.genTeams(t); timeGenTeams = time(NULL) - timeTemp; //replacement
       runEval(alev,activeRom,tpg,legal_actions,t,phase,visual,stateful,timeTotalInGame,-1,totalEval,totalFrame,featureMap); //evaluation
       tpg.hostFitnessMode(activeRom);//this gets toyed with in runEval, so set it back to activeRom prio to selection
-      timeTemp=time(NULL); tpg.setEliteTeams(t,_TRAIN_PHASE,objectives,highScores,lowScores,true); tpg.selTeams(t); timeSel=time(NULL)-timeTemp; //selection
+      timeTemp=time(NULL); tpg.setEliteTeams(t,_TRAIN_PHASE,objectives,true); tpg.selTeams(t); timeSel=time(NULL)-timeTemp; //selection
       //tpg.printTeamInfo(t,phase,false); //detailed team reporting
       timeTemp=time(NULL); tpg.cleanup(t, false); timeCleanup=time(NULL)-timeTemp; //delete teams, programs marked in selection (when to prune?)
       if (t % CHKP_MOD == 0) tpg.writeCheckpoint(t,_TRAIN_PHASE,true);
@@ -414,23 +395,6 @@ int main(int argc, char** argv) {
 
       if (t % romSwitchMod == 0){ //rom switching
          int prevRom = activeRom;
-
-         ////taskAware
-         //vector < int > romsNotMastered;
-         //for (size_t r = 0; r < alev.size(); r++)
-         //   if (tpg.eliteTeamMeanOutcome(r,alev.size()) < highScores[r])
-         //      romsNotMastered.push_back(r);
-
-         //if (romsNotMastered.size() > 0){
-         //   do
-         //      activeRom = romsNotMastered[(int)(drand48()*romsNotMastered.size())];
-         //   while(activeRom == prevRom && romsNotMastered.size() > 1);
-         //}
-         //else{
-         //   do
-         //      activeRom = (int)(drand48()*alev.size());
-         //   while (activeRom == prevRom);
-         //}
          do
             activeRom = (int)(drand48()*alev.size());
          while (activeRom == prevRom);

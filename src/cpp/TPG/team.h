@@ -37,8 +37,7 @@ class team
    int _nodes; /* Number of nodes at all levels assuming this team is the root. */
    map < point *, double, pointLexicalLessThan > _outcomes; /* Maps point->outcome. */
    double _parentFitness;
-   double _parentNovelty;
-   double _parentScore;
+   double _parentFit;
    set < long > _policyFeatures;
    set < long > _policyFeaturesActive;
    bool _root;
@@ -57,7 +56,6 @@ class team
    string checkpoint(int);
    inline void clearDistances(){ _distances_0.clear(); _distances_1.clear(); _distances_2.clear();}
    void clearRegisters(map <long, team*> &teamMap, set <team*> &);
-   long collectiveAge(long);
    void deleteMargin(point *); /* Delete margin. */
    void deleteOutcome(point *); /* Delete outcome. */
    inline int domBy() {return _domBy;}
@@ -71,7 +69,6 @@ class team
    void getBehaviourSequence(vector <int> &, int);
    inline double fit(){ return _fit; }
    inline void fit(double f) { _fit = f; }
-   bool getMargin(point *, double *); /* Get margin, return true if found. */
    double getMaxOutcome(int, int fitMode, int auxDouble, bool skipZeros);
    double getMeanOutcome(int,double, int fitMode, int auxDouble, bool skipZeros);
    double getMeanAuxDouble(int phase,int fitMode, int auxDouble);
@@ -99,10 +96,8 @@ class team
    void outcomes(int, int, vector < double >&); /* Get all outcome values of a particular type and from a particular phase.*/
    inline double parentFitness(){ return _parentFitness; }
    inline void parentFitness(double f) { _parentFitness = f; }
-   inline double parentNovelty(){ return _parentNovelty; }
-   inline void parentNovelty(double n) { _parentNovelty = n; }
-   inline double parentScore(){ return _parentScore; }
-   inline void parentScore(double n) { _parentScore = n; }
+   inline double parentFit(){ return _parentFit; }
+   inline void parentFit(double n) { _parentFit = n; }
    double policyFeatureDistance(team *, bool);
    inline void policyFeaturesGet(set< long > &f, bool active) { if (active) f = _policyFeaturesActive; else f = _policyFeatures; }
    inline void policyFeaturesSet(set< long > &f, bool active) { if (active) _policyFeaturesActive = f; else _policyFeatures = f;}
@@ -134,8 +129,7 @@ class team
       _nodes = 1;
       _numEval = 0;
       _parentFitness = 0.0;
-      _parentNovelty = 0.0;
-      _parentScore = 0.0;
+      _parentFit = 0.0;
       _root = false;
       _score = 0;
    };
@@ -171,6 +165,5 @@ struct teamScoreLexicalCompare {
       else { t1->lastCompareFactor(6); t2->lastCompareFactor(6); return t1->id() < t2->id();} //correlated to age but technically arbirary, id is guaranteed to be unique and thus ensures deterministic comparison
    }
 };
-
 
 #endif
