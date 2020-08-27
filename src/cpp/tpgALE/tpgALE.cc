@@ -25,6 +25,8 @@
 
 using namespace std;
 
+clock_t timeStartClockEval;
+
 /***********************************************************************************************************************/
 point * initUniformPointALE(long gtime, long id, int phase){
    vector < double > pState;
@@ -40,12 +42,11 @@ point * initUniformPointALE(long gtime, long id, int phase){
 
 /***********************************************************************************************************************/
 void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, bool stateful, int &timeGenTotalInGame, long hostToReplay, long &eval, long &decision, FeatureMap &featureMap){
-   bool timing = false;
+   bool timing = true;
    clock_t timeStartClockDecision;
    long decisionMilliseconds = 0;
-   clock_t timeStartClockEval;
+
    long totalGameFramesThisEval = 0;
-   if (timing) timeStartClockEval = clock();
    ActionVect legal_actions = aleEval.getMinimalActionSet();
    //ActionVect legal_actions = aleEval.getLegalActionSet();
    //gameplay data
@@ -75,7 +76,11 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
    set <team*> visitedTeams;
 
    vector <team*> teams; tpg.getTeams(teams,true);
+   int meanScore=0;
+   int minScore=0;
+   int maxScore=0;
    for (size_t i = 0; i < teams.size(); i++){
+      int scoreThisRoot=0;
       if (hostToReplay > -1 && teams[i]->id() != hostToReplay) continue;
       //get all features indexed by this policy (not just from active programs)
       set <long> features;
@@ -178,6 +183,7 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
          tpg.setOutcome(teams[i],tmpBehaviourSequence, rewards, phase, t);//behaviourSequence is actions only
          eval++;
          behaviourSequence.clear(); tmpBehaviourSequence.clear();
+         scoreThisRoot+=rewards[0];
          if (tpg.verbose()){
           cout << fixed << setprecision(4);
           cout << " gameScore " << rewards[0] ;//<< " steps " << step  << " meanDecisionInst " << numDecisionInstructionsPerGameSum/(double)step;
@@ -201,13 +207,21 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
          }
          cout << endl;
       }
+
+      scoreThisRoot/=numEval;
+      meanScore+=scoreThisRoot;
+      if(scoreThisRoot>maxScore) maxScore = scoreThisRoot;
+      if(scoreThisRoot<minScore) minScore = scoreThisRoot;
    }
+   meanScore/=teams.size();
   // if (!timing) cout << "tpgALE::runEval t " << t << " numProfilePoints " << tpg.numProfilePoints() << " newProfilePoints " << newProfilePoints << " numEval " << eval - evalInit  << " numFrame " << decision - decisionInit << endl;
+
+  cout<<std::setw(20) <<minScore<<std::setw(20) <<meanScore<<std::setw(20) <<maxScore;
 
    if (timing){
       double sec = (clock() - timeStartClockEval) / (double)CLOCKS_PER_SEC;
       //cout << "tpgALE::runEval timing";
-      cout << " secondsThisEval " << sec << endl;
+      cout /*<< " secondsThisEval " */<< std::setw(20) <<sec << endl;
      /* cout << " millisecondsPerDecision " << (double)decisionMilliseconds / (double)decision;
       cout << " decisionsPerSecond " <<(double)decision / sec;
       cout << " totalDecisionsThisEval " << decision;
@@ -340,14 +354,19 @@ int main(int argc, char** argv) {
    }
    if (!checkpoint){ timeTemp = time(NULL); tpg.initTeams(); timeInit = time(NULL)-timeTemp; }
    /* Main training loop. */
-   for (long t = tStart+1; t <= tMain; t++)
+
+   cout << setprecision(2) << fixed << left;
+   cout<<std::setw(20) <<"minScore"<<std::setw(20) <<"meanScore"<<std::setw(20) <<"maxScore"<<std::setw(20)<<"totalTime"<<endl;
+   timeStartClockEval = clock();
+
+    for (long t = tStart+1; t <= tMain; t++)
    {
       timeGenSec0 = time(NULL); timeTotalInGame = 0;
       timeTemp = time(NULL); tpg.genTeams(t); timeGenTeams = time(NULL) - timeTemp; //replacement
       runEval(ale,tpg,t,phase,visual,stateful,timeTotalInGame,-1,totalEval,totalFrame,featureMap); //evaluation
       tpg.hostDistanceMode((int)(drand48()*ALE_NUM_TEAM_DISTANCE_MEASURES)); //diversity switching
       timeTemp=time(NULL);tpg.selTeams(t); timeSel=time(NULL)-timeTemp; //selection
-      tpg.printTeamInfo(t,phase,true); cout << endl; //detailed team reporting (best only)
+      //tpg.printTeamInfo(t,phase,true); cout << endl; //detailed team reporting (best only)
       timeTemp=time(NULL); tpg.cleanup(t, false); timeCleanup=time(NULL)-timeTemp; //delete teams, programs marked in selection (when to prune?)
       if (t % CHKP_MOD == 0) tpg.writeCheckpoint(t,_TRAIN_PHASE,true);
       timeGenSec1 = time(NULL);
