@@ -1,0 +1,2 @@
+export TPGPATH=$(pwd)
+scons
