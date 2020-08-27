@@ -1,4 +1,4 @@
 env = Environment(CCFLAGS = '-O3')
-EXPORT('env')
+Export('env')
 
-SCONSCRIPT(['src/SConscript'],variant_dir='build_release')
+SConscript(['src/SConscript'],variant_dir='build_release')
