@@ -65,8 +65,8 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
    set <long> featTmp;
    long evalInit = eval;
    long decisionInit = decision;
-   long numDecisionInstructions, numDecisionInstructionsPerGameSum, numDecisionInstructionsPerEvalSum; 
-   long numVisitedTeamsPerGameSum, numVisitedTeamsPerEvalSum; 
+   long numDecisionInstructions, numDecisionInstructionsPerGameSum, numDecisionInstructionsPerEvalSum;
+   long numVisitedTeamsPerGameSum, numVisitedTeamsPerEvalSum;
    long numDecisionFeaturesPerGameSum, numDecisionFeaturesPerEvalSum;
    vector < set < long > > decisionFeatures;
    set < team * > teamTeams;
@@ -83,7 +83,7 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
       //calculate number of evaluations for this team
       int numEval = tpg.episodesPerGeneration() - teams[i]->numOutcomes(_TRAIN_PHASE,tpg.hostFitnessMode());
       if ( phase == _TRAIN_PHASE) numEval = min(tpg.episodesPerGeneration(),tpg.numStoredOutcomesPerHost(_TRAIN_PHASE) - teams[i]->numOutcomes(_TRAIN_PHASE,tpg.hostFitnessMode()));
-      else if (phase == _TEST_PHASE) numEval = tpg.numStoredOutcomesPerHost(_TEST_PHASE);   
+      else if (phase == _TEST_PHASE) numEval = tpg.numStoredOutcomesPerHost(_TEST_PHASE);
       else numEval = tpg.numStoredOutcomesPerHost(_VALIDATION_PHASE);
       if (tpg.verbose()){
          tpg.getAllNodes(teams[i], teamTeams, teamLearners);
@@ -95,7 +95,7 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
       //run evaluations
       for (int e = 0; e < numEval; e++){
          if (tpg.verbose())
-            cout << "runEval t " << t << " tm " << teams[i]->id() << " numOut " << teams[i]->numOutcomes(phase,tpg.hostFitnessMode());
+             cout << "runEval t " << t << " tm " << teams[i]->id() << " numOut " << teams[i]->numOutcomes(phase,tpg.hostFitnessMode());
          step = 0; for (int r = 0; r < ALE_NUM_POINT_AUX_DOUBLES; r++) rewards[r] = 0;
          numDecisionInstructionsPerGameSum = 0; numVisitedTeamsPerGameSum = 0; numDecisionFeaturesPerGameSum = 0;
          int decisionFeatCount = 0;
@@ -105,12 +105,12 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
             if (timing) timeStartClockDecision = clock();
             const ALEScreen screen = aleEval.getScreen();
             featureMap.getFeatures(screen,currentState,features,"");
-            //if (tpg.verbose() && visual) cout << endl << "=== policy trace ===========================================================" << endl;
+            if (tpg.verbose() && visual) cout << endl << "=== policy trace ===========================================================" << endl;
             if (!stateful || (stateful && step == 0)) tpg.clearRegisters(teams[i]);
             int atomicAction = tpg.getAction(teams[i], currentState, true, learnersRanked, winningLearners, numDecisionInstructions, decisionFeatures, visitedTeams, tpg.verbose());
             if(visual){
                featureMap.saveFrames(true);
-               featTmp.clear(); 
+               featTmp.clear();
                //sprintf(tmpChar, "%08d%s",step,".pol");
                //featureMap.getFeatures(screen,currentState,features,tmpChar); //pol vis
                for (int df = 0; df < decisionFeatures.size(); df++)
@@ -133,7 +133,7 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
                prevProfileId = teams[i]->id();
                newProfilePoints++;
             }
-            behaviourSequence.push_back((double)(atomicAction)); 
+            behaviourSequence.push_back((double)(atomicAction));
             step++;
             numDecisionInstructionsPerGameSum += numDecisionInstructions;
             numDecisionInstructionsPerEvalSum += numDecisionInstructions;
@@ -151,7 +151,7 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
                   cout << " s" << (*it)->id();
                }
                for(set<team*> :: iterator it = visitedTeams.begin(); it != visitedTeams.end();++it)
-                  cout << " h" << (*it)->id();
+                 cout << " h" << (*it)->id();
                cout << endl;
 
                cout << endl << "lUsageOnTime";
@@ -178,20 +178,20 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
          tpg.setOutcome(teams[i],tmpBehaviourSequence, rewards, phase, t);//behaviourSequence is actions only
          eval++;
          behaviourSequence.clear(); tmpBehaviourSequence.clear();
-         //if (tpg.verbose()){
-            cout << fixed << setprecision(4);
-            cout << " gameScore " << rewards[0] << " steps " << step  << " meanDecisionInst " << numDecisionInstructionsPerGameSum/(double)step;
+         if (tpg.verbose()){
+          cout << fixed << setprecision(4);
+          cout << " gameScore " << rewards[0] ;//<< " steps " << step  << " meanDecisionInst " << numDecisionInstructionsPerGameSum/(double)step;
             cout << " meanVisitedTeams " << numVisitedTeamsPerGameSum/(double)step;
-            cout << " meanDecisionFeatures " << numDecisionFeaturesPerGameSum/(double)step << endl;
-         //}
+           cout << " meanDecisionFeatures " << numDecisionFeaturesPerGameSum/(double)step << endl;
+         }
          totalGameFramesThisEval += aleEval.getEpisodeFrameNumber();
-         //cout << "totalGameFramesThisEval " << totalGameFramesThisEval << " enum " << aleEval.getEpisodeFrameNumber() << endl; 
+         //cout << "totalGameFramesThisEval " << totalGameFramesThisEval << " enum " << aleEval.getEpisodeFrameNumber() << endl;
          aleEval.reset_game();
       }
       if (tpg.verbose()){
          cout << "tpgEvalStats policy " << teams[i]->id();
          cout << " meanDecisionInst " << numDecisionInstructionsPerEvalSum/(double)(decision-decisionInit);
-         cout << " meanVisitedTeams " << numVisitedTeamsPerEvalSum/(double)(decision-decisionInit); 
+         cout << " meanVisitedTeams " << numVisitedTeamsPerEvalSum/(double)(decision-decisionInit);
          cout << " meanDecisionFeatures " << numDecisionFeaturesPerEvalSum/(double)(decision-decisionInit);
          cout << " lUseAllGame";
          for (map<learner*,long>::iterator it=learnerUsage.begin(); it!=learnerUsage.end(); ++it){
@@ -202,17 +202,17 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
          cout << endl;
       }
    }
-   if (!timing) cout << "tpgALE::runEval t " << t << " numProfilePoints " << tpg.numProfilePoints() << " newProfilePoints " << newProfilePoints << " numEval " << eval - evalInit  << " numFrame " << decision - decisionInit << endl;
+  // if (!timing) cout << "tpgALE::runEval t " << t << " numProfilePoints " << tpg.numProfilePoints() << " newProfilePoints " << newProfilePoints << " numEval " << eval - evalInit  << " numFrame " << decision - decisionInit << endl;
 
-   if (timing){ 
+   if (timing){
       double sec = (clock() - timeStartClockEval) / (double)CLOCKS_PER_SEC;
-      cout << "tpgALE::runEval timing";
-      cout << " secondsThisEval " << sec;
-      cout << " millisecondsPerDecision " << (double)decisionMilliseconds / (double)decision;
+      //cout << "tpgALE::runEval timing";
+      cout << " secondsThisEval " << sec << endl;
+     /* cout << " millisecondsPerDecision " << (double)decisionMilliseconds / (double)decision;
       cout << " decisionsPerSecond " <<(double)decision / sec;
       cout << " totalDecisionsThisEval " << decision;
-      cout << " totalGameFramesThisEval " << totalGameFramesThisEval; 
-      cout << " framesPerSecond " <<  (double)totalGameFramesThisEval / sec << endl;
+      cout << " totalGameFramesThisEval " << totalGameFramesThisEval;
+      cout << " framesPerSecond " <<  (double)totalGameFramesThisEval / sec << endl;*/
    }
 }
 /***********************************************************************************************************************/
@@ -312,7 +312,7 @@ int main(int argc, char** argv) {
    tpg.numFitMode(NUM_FIT_MODE);
    tpg.hostFitnessMode(hostFitnessMode);
    tpg.setParams(initUniformPointALE);
-   tpg.numAtomicActions(ale.getMinimalActionSet().size()); 
+   tpg.numAtomicActions(ale.getMinimalActionSet().size());
    tpg.verbose(verbose);
    long totalEval = 0;
    long totalFrame = 0;
@@ -342,17 +342,17 @@ int main(int argc, char** argv) {
    /* Main training loop. */
    for (long t = tStart+1; t <= tMain; t++)
    {
-      timeGenSec0 = time(NULL); timeTotalInGame = 0; 
+      timeGenSec0 = time(NULL); timeTotalInGame = 0;
       timeTemp = time(NULL); tpg.genTeams(t); timeGenTeams = time(NULL) - timeTemp; //replacement
       runEval(ale,tpg,t,phase,visual,stateful,timeTotalInGame,-1,totalEval,totalFrame,featureMap); //evaluation
       tpg.hostDistanceMode((int)(drand48()*ALE_NUM_TEAM_DISTANCE_MEASURES)); //diversity switching
       timeTemp=time(NULL);tpg.selTeams(t); timeSel=time(NULL)-timeTemp; //selection
       tpg.printTeamInfo(t,phase,true); cout << endl; //detailed team reporting (best only)
       timeTemp=time(NULL); tpg.cleanup(t, false); timeCleanup=time(NULL)-timeTemp; //delete teams, programs marked in selection (when to prune?)
-      if (t % CHKP_MOD == 0) tpg.writeCheckpoint(t,_TRAIN_PHASE,true); 
-      timeGenSec1 = time(NULL); 
-      cout << "TPG::genTime t " << t  << " sec " << timeGenSec1 - timeGenSec0 << " (" << timeTotalInGame << " InGame, "; 
-      cout << timeGenTeams << " genTeams, " << timeInit  << " initTeams, " << timeSel << " selTeams, " << timeCleanup << " cleanup)" << " totalEval " << totalEval  << " totalFrame " << totalFrame << endl;
+      if (t % CHKP_MOD == 0) tpg.writeCheckpoint(t,_TRAIN_PHASE,true);
+      timeGenSec1 = time(NULL);
+      //cout << "TPG::genTime t " << t  << " sec " << timeGenSec1 - timeGenSec0 << " (" << timeTotalInGame << " InGame, ";
+      //cout << timeGenTeams << " genTeams, " << timeInit  << " initTeams, " << timeSel << " selTeams, " << timeCleanup << " cleanup)" << " totalEval " << totalEval  << " totalFrame " << totalFrame << endl;
    }
    tpg.finalize();
    cout << "Goodbye cruel world." << endl;

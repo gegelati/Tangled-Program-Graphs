@@ -86,8 +86,8 @@ void TPG::cleanup(long t, bool prune, long &hostToReplay)
    int nrefs = 0;
    int sumNumOutcomes = 0;
 
-   cout << "TPG::cleanup ";
-   cout << _L.size() << " learners, " << _M.size() << " teams ";
+   /*cout << "TPG::cleanup ";
+   cout << _L.size() << " learners, " << _M.size() << " teams ";*/
    for(teiter = _M.begin(), sumTeamSizes = sumNumOutcomes = 0; teiter != _M.end(); teiter++)
    {
       sumTeamSizes += (*teiter)->size();
@@ -97,8 +97,8 @@ void TPG::cleanup(long t, bool prune, long &hostToReplay)
    for(leiter = _L.begin(), nrefs = 0; leiter != _L.end(); leiter++)
       nrefs += (*leiter)->refs();
 
-   cout << ", sumTeamSizes " << sumTeamSizes << ", nrefs " << nrefs << ", sumNumOutcomes " << sumNumOutcomes;
-   cout << endl;
+   /*cout << ", sumTeamSizes " << sumTeamSizes << ", nrefs " << nrefs << ", sumNumOutcomes " << sumNumOutcomes;
+   cout << endl;*/
 
    if(sumTeamSizes != nrefs)
       die(__FILE__, __FUNCTION__, __LINE__, "something messed up during cleanup");
@@ -176,7 +176,7 @@ void TPG::genTeams(long t)
       numNewTeams++;
    }
 
-   cout << "TPG::genTeams t " << t  << " Rsize " << _M.size() << " Lsize " << _L.size() << " numNewTeams " << numNewTeams << " numRoot " << setRoots() << endl;
+   // cout << "TPG::genTeams t " << t  << " Rsize " << _M.size() << " Lsize " << _L.size() << " numNewTeams " << numNewTeams << " numRoot " << setRoots() << endl;
 }
 
 /********************************************************************************************/
@@ -588,7 +588,7 @@ void TPG::initTeams()
          learnervec[i]->refInc();
       }
    }
-   cout << "TPG::initTeams numRoot " << setRoots() << endl;
+   /*cout << "TPG::initTeams numRoot " << */setRoots() /*<< endl*/;
 }
 
 /**********************************************************************************************************/
@@ -691,7 +691,7 @@ void TPG::printTeamInfo(long t, int phase, bool singleBest, long teamId){
          //cout << (*teiter)->toString(tmposs.str(), _teamMap, visitedTeams);
          //tmposs.str("");
          //cout << "TPG::tminfo_teamosop t " << t << " " << *(*teiter) << endl;
-         cout << "TPG::tminfo t " << t << " id " << (*teiter)->id() << " gtime " << (*teiter)->gtime();
+        /* cout << "TPG::tminfo t " << t << " id " << (*teiter)->id() << " gtime " << (*teiter)->gtime();
          cout << " root " << ((*teiter)->root() ? 1 : 0);
          cout << " size " << (*teiter)->size();
          cout << " asize " << (*teiter)->asize();
@@ -704,37 +704,37 @@ void TPG::printTeamInfo(long t, int phase, bool singleBest, long teamId){
          for (int i = _numFitMode; i < _numPointAuxDouble; i++)
             cout << " " << (*teiter)->getMeanOutcome(phase,_MEAN_OUT_PROP,-1,i,true);//all fitMode, specific auxDouble, skip zero values
          cout << " fit " << (*teiter)->fit();
-         cout << " score " << (*teiter)->score();
+         cout << " score " << (*teiter)->score();*/
          visitedTeams.clear();
-         cout << " ePolicyInstructions " << (*teiter)->policyInstructions(_teamMap, visitedTeams, true);
+        // cout << " ePolicyInstructions " << (*teiter)->policyInstructions(_teamMap, visitedTeams, true);
          visitedTeams.clear();
-         cout << " policyInstructions " << (*teiter)->policyInstructions(_teamMap, visitedTeams, false);
+        // cout << " policyInstructions " << (*teiter)->policyInstructions(_teamMap, visitedTeams, false);
          set <learner*> learners;
          visitedTeams.clear();
          (*teiter)->getAllNodes(_teamMap, visitedTeams, learners);
-         cout << " symCount " << learners.size();
+      /*   cout << " symCount " << learners.size();
          cout << " hostCount " << visitedTeams.size();
-         cout << " members ";
+         cout << " members ";*/
          set < learner * > mem;
          (*teiter)->members(&mem);
          set < learner * > :: iterator leiter;
-         for(leiter = mem.begin(); leiter != mem.end(); leiter++)
+      /*   for(leiter = mem.begin(); leiter != mem.end(); leiter++)
             cout << " |" << (*leiter)->id() << ":" << (*leiter)->action() << "|";
-         cout << " amembers ";
+         cout << " amembers ";*/
          mem.clear();
          (*teiter)->activeMembers(&mem);
-         for(leiter = mem.begin(); leiter != mem.end(); leiter++)
+     /*    for(leiter = mem.begin(); leiter != mem.end(); leiter++)
             cout << " |" << (*leiter)->id() << ":" << (*leiter)->action() << ":" << (*leiter)->refs() << "|";
          cout << " childUp ";
          if ((*teiter)->fit() > (*teiter)->parentFit())
             cout << "1";
          else
-            cout << "0";
+            cout << "0";*/
          vector <long> ancestors;
          (*teiter)->getAllAncestors(ancestors);
-         cout << " ancestors " << vecToStr(ancestors);
+       //  cout << " ancestors " << vecToStr(ancestors);
          (*teiter)->outcomes(allOutcomes,phase);
-         cout << " allOutcomes ";
+      /*   cout << " allOutcomes ";
          if (allOutcomes.size() > 0){
             for(myoiter = allOutcomes.begin(); myoiter != allOutcomes.end(); myoiter++){
                if (myoiter == allOutcomes.begin()) cout << "["; else cout << ",";
@@ -742,24 +742,24 @@ void TPG::printTeamInfo(long t, int phase, bool singleBest, long teamId){
             }
             cout << "]";
          }
-         cout << " behaviourProfile ";
+         cout << " behaviourProfile ";*/
          behaviourSequence.clear();
          (*teiter)->getBehaviourSequence(behaviourSequence,phase);
-         cout << vecToStrNoSpace(behaviourSequence);
+      //   cout << vecToStrNoSpace(behaviourSequence);
          visitedTeams.clear();
          set < long > features;
          (*teiter)->policyFeatures(_teamMap, visitedTeams, features, false);
-         cout << " policyFeatures uniq " << features.size() << " feat";
+     //    cout << " policyFeatures uniq " << features.size() << " feat";
          set <long >::iterator feiter;
-         for(feiter = features.begin(); feiter!=features.end();feiter++)
-            cout << " " << (*feiter); 
+   /*      for(feiter = features.begin(); feiter!=features.end();feiter++)
+            cout << " " << (*feiter);*/
          visitedTeams.clear();
          features.clear();
          (*teiter)->policyFeatures(_teamMap, visitedTeams, features, true);
-         cout << " policyFeaturesActive uniqActive " << features.size() << " featActive";
+   /*      cout << " policyFeaturesActive uniqActive " << features.size() << " featActive";
          for(feiter = features.begin(); feiter!=features.end();feiter++)
             cout << " " << (*feiter);
-         cout << endl;
+         cout << endl;*/
       }
    }
 }
