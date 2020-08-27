@@ -38,9 +38,15 @@ The Sconscripts in each subdiretory of src/cpp should be modified to reference t
 
 For linking with the ALE, add something like the following to your login script:
 
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/PATH/TO/ALE
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/asimonu/Bureau/Gegelati/skellcoTPG/ale_0.5.1
+
 
 ## COMPILING
+
+    To compile the ALE and this program with a single command do the following :
+    ./build.sh
+
+    Otherwise you can compile this program manually :
 
     cd $TPGPATH
     scons --opt
