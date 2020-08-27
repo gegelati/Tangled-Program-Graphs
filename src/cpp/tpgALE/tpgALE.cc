@@ -293,7 +293,7 @@ int main(int argc, char** argv) {
    ale.setFloat("repeat_action_probability", 0.25);//this is the default
    ale.setBool("display_screen", visual);
    ale.setBool("sound", visual);
-   char romBin[80]; sprintf(romBin, "%s/%s%s","roms/",rom,".bin");
+   char romBin[80]; sprintf(romBin, "%s/%s%s","../roms/",rom,".bin");
    cout << "ROM " << romBin << endl;
    ale.loadROM(romBin);//(Also resets the system for new settings to take effect.)
    ActionVect legal_actions = ale.getMinimalActionSet();

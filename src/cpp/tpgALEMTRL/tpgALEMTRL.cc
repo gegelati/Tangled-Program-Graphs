@@ -326,7 +326,7 @@ int main(int argc, char** argv) {
       alev.back()->setFloat("repeat_action_probability", 0.25);//this is the default
       alev.back()->setBool("display_screen", visual);
       alev.back()->setBool("sound", visual);
-      char romBin[80]; sprintf(romBin, "%s/%s","roms",outcomeFields[0].c_str());
+      char romBin[80]; sprintf(romBin, "%s/%s","../roms",outcomeFields[0].c_str());
       cout << " " << outcomeFields[0];
       alev.back()->loadROM(romBin);//(Also resets the system for new settings to take effect.)
    }
