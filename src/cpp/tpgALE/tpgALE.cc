@@ -26,6 +26,7 @@
 using namespace std;
 
 clock_t timeStartClockEval;
+int gen;
 
 /***********************************************************************************************************************/
 point * initUniformPointALE(long gtime, long id, int phase){
@@ -216,7 +217,7 @@ void runEval(ALEInterface &aleEval, TPG &tpg, int t, int phase, bool visual, boo
    meanScore/=teams.size();
   // if (!timing) cout << "tpgALE::runEval t " << t << " numProfilePoints " << tpg.numProfilePoints() << " newProfilePoints " << newProfilePoints << " numEval " << eval - evalInit  << " numFrame " << decision - decisionInit << endl;
 
-  cout<<std::setw(20) <<minScore<<std::setw(20) <<meanScore<<std::setw(20) <<maxScore;
+  cout<<std::setw(20)<<gen<<std::setw(20) <<minScore<<std::setw(20) <<meanScore<<std::setw(20) <<maxScore;
 
    if (timing){
       double sec = (clock() - timeStartClockEval) / (double)CLOCKS_PER_SEC;
@@ -356,8 +357,9 @@ int main(int argc, char** argv) {
    /* Main training loop. */
 
    cout << setprecision(2) << fixed << left;
-   cout<<std::setw(20) <<"minScore"<<std::setw(20) <<"meanScore"<<std::setw(20) <<"maxScore"<<std::setw(20)<<"totalTime"<<endl;
+   gen=0;
    timeStartClockEval = clock();
+   cout<<std::setw(20) <<"generation"<<std::setw(20) <<"minScore"<<std::setw(20) <<"meanScore"<<std::setw(20) <<"maxScore"<<std::setw(20)<<"totalTime"<<endl;
 
     for (long t = tStart+1; t <= tMain; t++)
    {
@@ -372,6 +374,7 @@ int main(int argc, char** argv) {
       timeGenSec1 = time(NULL);
       //cout << "TPG::genTime t " << t  << " sec " << timeGenSec1 - timeGenSec0 << " (" << timeTotalInGame << " InGame, ";
       //cout << timeGenTeams << " genTeams, " << timeInit  << " initTeams, " << timeSel << " selTeams, " << timeCleanup << " cleanup)" << " totalEval " << totalEval  << " totalFrame " << totalFrame << endl;
+	gen++;
    }
    tpg.finalize();
    cout << "Goodbye cruel world." << endl;
