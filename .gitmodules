@@ -1,3 +1,4 @@
 [submodule "ale_0.5.1"]
 	path = ale_0.5.1
 	url = https://github.com/mgbellemare/Arcade-Learning-Environment.git
+        ignore = dirty
